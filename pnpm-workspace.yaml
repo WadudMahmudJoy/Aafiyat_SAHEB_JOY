@@ -1,0 +1,11 @@
+# Keep package-manager artifacts within this repository.
+storeDir: .pnpm-store
+cacheDir: .pnpm-cache
+stateDir: .pnpm-state
+
+# Native resolver used by the Next.js ESLint configuration.
+allowBuilds:
+  "@prisma/engines": true
+  esbuild: true
+  prisma: true
+  unrs-resolver: true

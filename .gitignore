@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+*.log
+.env*
+!.env.example
+.pnpm-store/
+.pnpm-cache/
+.pnpm-state/
+src/generated/prisma/
+
+# Local database artifacts; SQL migration files remain tracked.
+postgres-data/
+*.dump
+*.sql.gz
+*.db
+*.sqlite
+*.sqlite3
