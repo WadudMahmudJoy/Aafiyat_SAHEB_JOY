@@ -1,4 +1,4 @@
-// Initial catalog and inventory only. Further modules require separate approval.
+// Catalog, inventory, and Better Auth foundation. Further modules require separate approval.
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -77,4 +77,121 @@ model InventoryBalance {
 
   // Available stock is derived as onHand - reserved; no duplicate stored value.
   @@map("inventory_balances")
+}
+
+// Better Auth owns identity/session storage; application memberships are separate.
+model User {
+  id               String      @id
+  name             String
+  email            String
+  emailVerified    Boolean     @default(false)
+  image            String?
+  createdAt        DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(6)
+  twoFactorEnabled Boolean?    @default(false)
+  sessions         Session[]
+  accounts         Account[]
+  twofactors       TwoFactor[]
+  adminUser        AdminUser?
+
+  @@unique([email])
+  @@map("auth_users")
+}
+
+model Session {
+  mfaVerifiedAt DateTime? @map("mfa_verified_at") @db.Timestamptz(6)
+  id        String   @id
+  expiresAt DateTime @db.Timestamptz(6)
+  token     String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("auth_verifications")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime? @db.Timestamptz(6)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("auth_two_factors")
+}
+
+enum AdminRoleName {
+  OWNER
+  PRODUCT_MANAGER
+  ORDER_MANAGER
+  MARKETING_MANAGER
+
+  @@map("admin_role_name")
+}
+
+model AdminRole {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      AdminRoleName @unique
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  users     AdminUser[]
+
+  @@map("admin_roles")
+}
+
+model AdminUser {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @unique @map("user_id")
+  roleId     String    @map("role_id") @db.Uuid
+  active     Boolean   @default(false)
+  disabledAt DateTime? @map("disabled_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role       AdminRole @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([roleId])
+  @@map("admin_users")
 }

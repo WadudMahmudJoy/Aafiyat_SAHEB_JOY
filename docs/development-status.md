@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–007A completed, 9 October 2026.
+Checkpoint: Tasks 001–008I implemented, 9 October 2026; human GUI acceptance pending.
 
 ## Completed work
 
@@ -13,14 +13,18 @@ Checkpoint: Tasks 001–007A completed, 9 October 2026.
 - Task 006: server-side Prisma runtime connection and idempotent category seed.
 - Task 007: server-only public catalog read service with safe DTOs and cursor pagination.
 - Task 007A: 21 live PostgreSQL integration checks passed; fixtures rolled back.
+- Tasks 008A–008E: Better Auth identity/session schema, roles, HTTP handler, and session-bound MFA proof.
+- Tasks 008F–008I: server-side MFA authorization and controlled local Owner onboarding; security fixes verified.
+- Authentication is **NOT production-ready**. Human Windows GUI acceptance remains pending.
 
 ## Current stack
 
 - Next.js 16.4.0 App Router, React 19.3.0, and strict TypeScript 6.0.3.
 - Tailwind CSS 4.3.3, ESLint 9.39.5, and pnpm 11.1.2.
 - Prisma CLI/Client/PostgreSQL adapter 7.10.0; pg driver 8.23.1.
+- Better Auth 1.7.7 owns identity, credential accounts, sessions, and TOTP factors.
 - Node.js 24; src/ directory and @/* import alias.
-- Modular monolith; application integrations remain unimplemented.
+- Modular monolith; commerce integrations remain unimplemented.
 
 ## Local database
 
@@ -30,6 +34,7 @@ Checkpoint: Tasks 001–007A completed, 9 October 2026.
 - Database: aafiyat_dev; schema: public; named persistent volume: postgres_data.
 - Local .env is ignored; .env.example contains placeholders, not passwords.
 - Initial migration: 20261009000000_init_catalog_inventory; applied and current.
+- Three additive authentication migrations add framework tables, admin roles/memberships, and private session MFA proof.
 - Models: Category, Product, ProductVariant, InventoryBalance.
 - Available inventory is derived from on_hand minus reserved.
 - Generated Prisma Client is ignored; regenerate with pnpm exec prisma generate.
@@ -40,7 +45,7 @@ Checkpoint: Tasks 001–007A completed, 9 October 2026.
 - Categories: T-Shirt (t-shirts), Half Shirt (half-shirts), Full Shirt (full-shirts).
 - Categories continued: Panjabi (panjabi), Sherwani (sherwani).
 - First seed created five; second created zero and preserved all existing fields.
-- Prisma retrieved exactly five categories; other application tables stayed empty.
+- Prisma retrieved exactly five categories; catalog product/inventory tables remain empty.
 - Runtime connection, missing-URL failure, and client reuse on module reload passed.
 - Migration checksum/status and supported-schema drift comparison passed.
 - Verified 17 CHECK constraints, 3 restrictive FKs, 4 PKs, and 12 indexes.
@@ -49,6 +54,9 @@ Checkpoint: Tasks 001–007A completed, 9 October 2026.
 - Docker Engine was unavailable in Task 004; live verification passed in Task 005.
 - Catalog visibility, stock labels, DTO protection, pagination, and BIGINT checks passed.
 - After live catalog testing: five categories; zero products, variants, or balances.
+- Latest authentication checks: 21 onboarding, 23 MFA/live authorization, 22 authorization, 19 HTTP, and 6 viewer checks passed.
+- Temporary identities removed; all 11 database fingerprints restored. Four roles, no auth users/admin memberships; no real Owner exists.
+- Viewer checks cover automated transport/lifecycle and PowerShell parsing; they do not establish human GUI acceptance.
 
 ## Scope and pending decisions
 
@@ -61,5 +69,5 @@ Checkpoint: Tasks 001–007A completed, 9 October 2026.
 - Conditional launch modules and simplifying cardinalities await confirmation.
 - See the requirements and database blueprint for the authoritative detail.
 
-Next planned task: admin authentication foundation, subject to supervisor review.
-No APIs, catalog management UI, customers, orders, payments, or admin features yet.
+Next: disposable Windows GUI acceptance, subject to supervisor review; QR/manual setup UX needs improvement.
+No real Owner provisioning, admin UI/CRUD, customers, orders, or payments implemented.
