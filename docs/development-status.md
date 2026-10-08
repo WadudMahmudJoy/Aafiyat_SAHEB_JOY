@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–006 completed, 9 October 2026.
+Checkpoint: Tasks 001–007A completed, 9 October 2026.
 
 ## Completed work
 
@@ -11,6 +11,8 @@ Checkpoint: Tasks 001–006 completed, 9 October 2026.
 - Task 004: local Docker Compose PostgreSQL and model-free Prisma setup.
 - Task 005: four initial models and verified initial migration.
 - Task 006: server-side Prisma runtime connection and idempotent category seed.
+- Task 007: server-only public catalog read service with safe DTOs and cursor pagination.
+- Task 007A: 21 live PostgreSQL integration checks passed; fixtures rolled back.
 
 ## Current stack
 
@@ -45,6 +47,8 @@ Checkpoint: Tasks 001–006 completed, 9 October 2026.
 - All 41 invalid-write probes and valid boundary tests passed; probes rolled back.
 - TypeScript, ESLint, production build, and whitespace checks passed.
 - Docker Engine was unavailable in Task 004; live verification passed in Task 005.
+- Catalog visibility, stock labels, DTO protection, pagination, and BIGINT checks passed.
+- After live catalog testing: five categories; zero products, variants, or balances.
 
 ## Scope and pending decisions
 
@@ -57,5 +61,5 @@ Checkpoint: Tasks 001–006 completed, 9 October 2026.
 - Conditional launch modules and simplifying cardinalities await confirmation.
 - See the requirements and database blueprint for the authoritative detail.
 
-Next planned task: catalog service foundation, subject to supervisor review.
+Next planned task: admin authentication foundation, subject to supervisor review.
 No APIs, catalog management UI, customers, orders, payments, or admin features yet.
