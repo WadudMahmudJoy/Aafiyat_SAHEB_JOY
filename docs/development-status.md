@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–009B completed; Task 009B draft product checkpoint verification, 9 October 2026.
+Checkpoint: Tasks 001–009C completed; Task 009C variant/pricing checkpoint verification, 10 October 2026.
 
 ## Completed work
 
@@ -24,6 +24,8 @@ Checkpoint: Tasks 001–009B completed; Task 009B draft product checkpoint verif
 - Catalogue requires server-authorized catalog:read; exact inventory is selected and returned only with inventory:manage. Existing MFA, membership, and session checks remain mandatory; public catalogue is unchanged.
 - Task 009B: protected /admin/products/new and /admin/products/[id]/edit provide DRAFT creation and six-field metadata editing only; authorized Add/Edit navigation is integrated.
 - Draft writes require catalog:write, current MFA-backed active membership, same-origin requests, and server validation. Category references and duplicate slugs are checked; row locking and exact microsecond revisions prevent stale overwrites. Lifecycle and privileged fields cannot be submitted.
+- Task 009C: protected DRAFT variant creation/editing routes manage SKU, size/color codes and labels, and BDT prices. Global SKU and product size/color uniqueness are enforced; exact BIGINT poisha conversion rejects malformed, negative, and overflowing amounts.
+- Variant writes retain existing catalog:write, fresh session-bound MFA, active membership, same-origin protection, and field allowlisting. Parent-first locks, exact revisions, and product/variant binding guard lifecycle races, stale edits, and cross-product tampering. Inventory and public catalogue contracts are unchanged.
 - Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
@@ -80,6 +82,8 @@ Checkpoint: Tasks 001–009B completed; Task 009B draft product checkpoint verif
 - Product listing/detail designs approved by the supervisor; prior TEST previews verified at all five dashboard viewport sizes. All 12 database fingerprints restored; five categories, four roles, no products or authentication identities remain.
 - Draft checkpoint: 20 write/security and 11 form/navigation/route checks, plus affected catalogue, public, dashboard, login, HTTP, MFA, and RBAC checks passed (198 total), with additional public contract regressions. TypeScript, ESLint, production build, and whitespace checks passed.
 - Add/Edit designs approved by the supervisor; prior disposable previews verified responsive controls and keyboard focus at all five viewport sizes. Fixture rollback restored all 12 fingerprints; final read-only preflight passed with five categories, four roles, and no products, Owner memberships, or authentication identities. Real-admin browser acceptance remains pending.
+- Variant checkpoint: 25 write/security, 5 concurrency/recovery, and 10 form/route checks plus 198 affected regressions passed (238 total), with additional public contract checks. TypeScript, ESLint, production build, and whitespace checks passed; all 12 fingerprints restored and final local preflight passed.
+- Add/Edit Variant designs approved by the supervisor; prior static TEST previews passed all five viewport sizes and keyboard checks. Price helper wording simplified without changing monetary limits. Five categories and four roles remain; no test products, variants, balances, authentication identities, or permanent Owner exist. Real-admin browser acceptance remains pending.
 
 ## Scope and pending decisions
 
@@ -94,4 +98,4 @@ Checkpoint: Tasks 001–009B completed; Task 009B draft product checkpoint verif
 
 Remaining: real-admin browser/MFA acceptance, production deployment, recovery policy, and operational security review. Authentication is not production-ready.
 Next work requires separate review and authorization; no real Owner provisioning is included.
-Variants, pricing, inventory adjustments, media management, and publishing remain upcoming. Orders, marketing, and administration business modules, staff onboarding, customers, and payments remain unimplemented; real-admin catalogue and draft-editing acceptance is pending.
+Inventory adjustments, media management, and publishing remain upcoming. Orders, marketing, and administration business modules, staff onboarding, customers, and payments remain unimplemented; real-admin catalogue, draft, and variant-editing acceptance is pending.

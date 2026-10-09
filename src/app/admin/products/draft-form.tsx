@@ -17,7 +17,7 @@ export default function DraftForm({ productId, version, values = emptyDraft, cat
   };
   return <section aria-labelledby="draft-heading" className={styles.editor}>
     <p className={styles.eyebrow}>PRODUCT INFORMATION · DRAFT ONLY</p><h1 id="draft-heading">{productId ? "Edit product draft" : "Add product draft"}</h1>
-    <p className={styles.intro}>Save product information privately. Publishing, variants, prices, stock changes, and images are upcoming.</p>
+    <p className={styles.intro}>Save product information privately. Variants and BDT prices are managed separately. Publishing, stock changes, and images are upcoming.</p>
     <form action={action} aria-busy={pending}>
       {productId && <input type="hidden" name="version" value={state.version ?? version ?? ""} />}
       <fieldset disabled={pending || created}><legend className={styles.legend}>Product metadata</legend>
