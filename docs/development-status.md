@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–008M completed, 9 October 2026; local GUI acceptance operator-confirmed.
+Checkpoint: Tasks 001–008P completed, 9 October 2026; disposable onboarding operator-confirmed.
 
 ## Completed work
 
@@ -16,6 +16,8 @@ Checkpoint: Tasks 001–008M completed, 9 October 2026; local GUI acceptance ope
 - Tasks 008A–008E: Better Auth identity/session schema, roles, HTTP handler, and session-bound MFA proof.
 - Tasks 008F–008I: server-side MFA authorization and controlled local Owner onboarding; security fixes verified.
 - Tasks 008K–008M: disposable preview, Windows popup visibility fix, offline QR/manual-key UI, and operator acceptance completed.
+- Task 008O: TEST-only rehearsal utility, exact-ID cleanup, guarded recovery journal, and operator guide.
+- Task 008P and focused fixes: safe login diagnostics and memory-only confirmed password reuse; full interactive rehearsal operator-confirmed PASS.
 - Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
@@ -56,10 +58,12 @@ Checkpoint: Tasks 001–008M completed, 9 October 2026; local GUI acceptance ope
 - Catalog visibility, stock labels, DTO protection, pagination, and BIGINT checks passed.
 - After live catalog testing: five categories; zero products, variants, or balances.
 - Authentication checks: 21 onboarding, 23 MFA/live authorization, 22 authorization, and 19 HTTP checks passed; viewer suite expanded to 16 checks.
-- Temporary identities removed; all 11 database fingerprints restored. Four roles, no auth users/admin memberships; no real Owner exists.
+- Rehearsal guards (18) and credential reuse/login checks (22) passed, including post-activation login.
+- Latest disposable fixture cleanup restored all 12 table fingerprints, including migration metadata. Four roles, no auth users/admin memberships; no real Owner exists.
 - Automated viewer checks cover exact QR/URI round-trip, manual-key matching/fallback, transport, native lifecycle, and parent cleanup.
 - Separately, operator-confirmed Task 008M: all seven manual checks passed—QR visibility/scanning, labels, Show/Hide, Done/X, Ctrl+C/timeout, and no observed secret output/persistent files.
-- No real Owner account exists; these tasks performed no real provisioning or activation. No new human GUI acceptance is claimed in 008N.
+- Operator-confirmed Task 008P: inactive creation, enrollment, MFA login, atomic activation, permissions/revocation, post-activation login, exact cleanup, all 12 fingerprints, and final preflight passed.
+- No real Owner account exists; only disposable fixtures were provisioned/activated. Interactive rehearsal is not rerun for this checkpoint.
 
 ## Scope and pending decisions
 
@@ -72,5 +76,5 @@ Checkpoint: Tasks 001–008M completed, 9 October 2026; local GUI acceptance ope
 - Conditional launch modules and simplifying cardinalities await confirmation.
 - See the requirements and database blueprint for the authoritative detail.
 
-Next: controlled Owner onboarding rehearsal and Admin Login UI, subject to separate authorization.
+Next: Admin Login UI, subject to separate authorization.
 No real Owner provisioning, admin UI/CRUD, customers, orders, or payments implemented.
