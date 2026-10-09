@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–008Q and login polish completed, 9 October 2026; disposable onboarding operator-confirmed.
+Checkpoint: Tasks 001–008R and dashboard polish completed; Task 008S verification, 9 October 2026.
 
 ## Completed work
 
@@ -19,6 +19,7 @@ Checkpoint: Tasks 001–008Q and login polish completed, 9 October 2026; disposa
 - Task 008O: TEST-only rehearsal utility, exact-ID cleanup, guarded recovery journal, and operator guide.
 - Task 008P and focused fixes: safe login diagnostics and memory-only confirmed password reuse; full interactive rehearsal operator-confirmed PASS.
 - Task 008Q and polish: branded email/password and separate TOTP login, server-protected /admin entry, role-only session API, sign-out/session-expiry handling, and favicon.
+- Task 008R and polish: unified OWNER dashboard, server-permission-derived staff navigation, responsive shell, safe identity display, and upcoming module placeholders. Existing four-role RBAC and mandatory MFA preserved.
 - Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
@@ -68,6 +69,9 @@ Checkpoint: Tasks 001–008Q and login polish completed, 9 October 2026; disposa
 - Login checkpoint: 10 form/transport/accessibility, 11 live login/access, 19 HTTP, 23 MFA, and 22 authorization checks passed (85 total); all 12 fixture fingerprints restored.
 - Desktop/mobile design accepted by the operator; 375×667 and 320×568 spacing verified without horizontal overflow, with accessible controls preserved. Favicon returns HTTP 200.
 - Unauthenticated /admin redirects to the fixed login route; session API returns generic 401 without private data; login remains public. TypeScript, ESLint, production build, and whitespace checks passed.
+- Dashboard checkpoint: 13 policy/access, 9 presentation/UTF-8, 7 session/sign-out, 10 login form, 12 live login, 19 HTTP, 23 MFA, and 22 authorization checks passed (115 total); all 12 database fingerprints restored.
+- Supervisor accepted desktop/mobile design. Chrome checks at 320×568, 375×667, 393×852, 768×1024, and 1440×900 passed without horizontal overflow; keyboard Workspace menu open/close and focus verified.
+- Offline preview is explicitly unauthenticated, uses a disabled mock sign-out, writes UTF-8 directly, and is ignored by Git. Original file-origin warning was not reproduced in clean Chrome under file:// or HTTP; no preview scripts or external resources exist.
 
 ## Scope and pending decisions
 
@@ -81,5 +85,5 @@ Checkpoint: Tasks 001–008Q and login polish completed, 9 October 2026; disposa
 - See the requirements and database blueprint for the authoritative detail.
 
 Remaining: real-admin browser/MFA acceptance, production deployment, recovery policy, and operational security review. Authentication is not production-ready.
-Next work requires separate review and authorization; no dashboard or real Owner provisioning is included.
-No admin CRUD, customers, orders, or payments implemented.
+Next work requires separate review and authorization; no real Owner provisioning is included.
+Products/inventory management, orders, marketing, and administration business modules remain upcoming. No admin CRUD, staff onboarding, customers, orders, or payments implemented.

@@ -1,13 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_LOGIN, checkAdminSession, signOut } from "@/lib/admin-login-client";
-import styles from "./admin.module.css";
+import type { AdminDashboardData } from "@/lib/admin-dashboard";
+import DashboardView from "./dashboard-view";
 
-export default function AdminSession({ role }: { role: string }) {
+export default function AdminSession({ dashboard }: { dashboard: AdminDashboardData }) {
   const router = useRouter();
   const [state, setState] = useState<"ready" | "checking" | "unavailable">("ready");
   const [busy, setBusy] = useState(false);
+  const retryCheck = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
     let alive = true; let running = false;
     const check = async () => {
@@ -16,30 +18,26 @@ export default function AdminSession({ role }: { role: string }) {
         const response = await checkAdminSession();
         if (!alive) return;
         if (response.status === 401) { router.replace(`${ADMIN_LOGIN}?reason=expired`); router.refresh(); }
-        else setState(response.ok ? "ready" : "unavailable");
+        else if (response.ok) {
+          const current: { role?: unknown } = await response.json();
+          if (!alive) return;
+          if (current.role !== dashboard.role) { router.refresh(); return; }
+          setState("ready");
+        } else setState("unavailable");
       } catch { if (alive) setState("unavailable"); }
       finally { running = false; }
     };
     const visible = () => { if (document.visibilityState === "visible") void check(); };
+    retryCheck.current = check;
     void check();
     const timer = setInterval(() => void check(), 60_000);
     document.addEventListener("visibilitychange", visible); window.addEventListener("pageshow", check);
-    return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", visible); window.removeEventListener("pageshow", check); };
-  }, [router]);
+    return () => { alive = false; retryCheck.current = null; clearInterval(timer); document.removeEventListener("visibilitychange", visible); window.removeEventListener("pageshow", check); };
+  }, [router, dashboard.role]);
   async function leave() {
     setBusy(true); setState("checking");
     try { await signOut(); router.replace(ADMIN_LOGIN); router.refresh(); }
     catch { setState("unavailable"); setBusy(false); }
   }
-  return <section className={styles.card} aria-labelledby="admin-heading" aria-busy={busy || state === "checking"}>
-    <p className={styles.eyebrow}>AAFIYAT SAHEB · ADMINISTRATION</p>
-    <h1 id="admin-heading">Welcome inside.</h1>
-    <div aria-live="polite">
-      {state === "ready" ? <><p className={styles.intro}>Your secure admin session is active.</p>
-        <p className={styles.role}>Authorized role <strong>{role}</strong></p></>
-        : <p className={styles.notice}>{state === "checking" ? "Checking your session…" : "Connection unavailable. Please reload or try signing out again."}</p>}
-    </div>
-    <button className={styles.primary} type="button" onClick={leave} disabled={busy}>{busy ? "Signing out…" : "Sign out"}</button>
-    <p className={styles.footnote}>A private space for authorized administrators.</p>
-  </section>;
+  return <DashboardView dashboard={dashboard} state={state} busy={busy} onSignOut={leave} onRetry={() => { void retryCheck.current?.(); }} />;
 }

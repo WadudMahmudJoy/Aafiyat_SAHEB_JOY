@@ -9,6 +9,7 @@ import { GET } from "../src/app/api/admin/session/route";
 import { activatePendingOwner, enrollPendingOwner, provisionInactiveOwner } from "../src/lib/local-owner-bootstrap";
 import { challengeHash, cleanupRehearsal, prepareRehearsal } from "../src/lib/local-owner-rehearsal";
 import { beginAdminLogin, finishAdminLogin, signOut } from "../src/lib/admin-login-client";
+import { getAdminDashboard } from "../src/lib/admin-dashboard";
 
 function totp(uri: string) {
   const bits = [...new URL(uri).searchParams.get("secret")!.replace(/=+$/, "")].map(c =>
@@ -60,6 +61,7 @@ async function verify() {
     await test("incorrect TOTP cannot navigate to admin", async () => assert.rejects(finishAdminLogin("abcdef", send)));
     await test("inactive admin denied after genuine login TOTP; no navigation", async () => {
       await assert.rejects(finishAdminLogin(totp(factor.totpURI), send)); assert.equal((await sessionCheck()).status, 401);
+      await assert.rejects(getAdminDashboard(headers()));
     });
     jar = new Map(); await rawLogin();
     await send("/api/auth/two-factor/verify-totp", { method: "POST", body: JSON.stringify({ code: totp(factor.totpURI) }) });
@@ -69,6 +71,11 @@ async function verify() {
       await beginAdminLogin(j.email, password, send); assert.equal((await sessionCheck()).status, 401);
     });
     await test("verified active admin navigates only to fixed /admin", async () => assert.equal(await finishAdminLogin(totp(factor.totpURI), send), "/admin"));
+    await test("live OWNER dashboard has safe identity and four policy-derived areas", async () => {
+      const data = await getAdminDashboard(headers());
+      assert.deepEqual(data.identity, { name: j.name, email: j.email });
+      assert.deepEqual(data.areas.map(area => area.id), ["products", "orders", "marketing", "administration"]);
+    });
     await test("public session DTO contains authorized role only; no-store", async () => {
       const response = await sessionCheck(); assert.equal(response.headers.get("Cache-Control"), "no-store, private");
       assert.deepEqual(await response.json(), { role: "OWNER" });
@@ -78,6 +85,7 @@ async function verify() {
       try {
         await prisma.adminUser.update({ where: { id: fixture.membershipId }, data: { roleId: role.id } });
         assert.equal((await sessionCheck()).status, 200);
+        assert.deepEqual((await getAdminDashboard(headers())).areas.map(area => area.id), ["orders"]);
       } finally {
         const owner = await prisma.adminRole.findUniqueOrThrow({ where: { name: "OWNER" } });
         await prisma.adminUser.update({ where: { id: fixture.membershipId }, data: { roleId: owner.id } });
@@ -86,6 +94,7 @@ async function verify() {
     await test("disabled admin session denied", async () => {
       await prisma.adminUser.update({ where: { id: fixture.membershipId }, data: { active: false } });
       assert.equal((await sessionCheck()).status, 401);
+      await assert.rejects(getAdminDashboard(headers()));
       await prisma.adminUser.update({ where: { id: fixture.membershipId }, data: { active: true } });
     });
     const authenticated = await auth.api.getSession({ headers: headers(), query: { disableCookieCache: true, disableRefresh: true } });
@@ -93,12 +102,14 @@ async function verify() {
     await test("expired database session denied", async () => {
       await prisma.session.update({ where: { id: row.id }, data: { expiresAt: new Date(0) } });
       assert.equal((await sessionCheck()).status, 401);
+      await assert.rejects(getAdminDashboard(headers()));
       assert.equal(await prisma.session.count({ where: { id: row.id } }), 0); // Framework removes expired sessions.
     });
     jar = new Map(); await beginAdminLogin(j.email, password, send); await finishAdminLogin(totp(factor.totpURI), send);
     const current = await auth.api.getSession({ headers: headers(), query: { disableCookieCache: true, disableRefresh: true } });
     await test("revoked session denied after secure sign-out", async () => {
       await signOut(send); assert.equal((await sessionCheck()).status, 401);
+      await assert.rejects(getAdminDashboard(headers()));
       assert.equal(await prisma.session.count({ where: { id: current!.session.id } }), 0);
     });
   } finally {

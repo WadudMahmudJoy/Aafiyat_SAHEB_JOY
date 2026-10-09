@@ -21,3 +21,6 @@ postgres-data/
 
 # Local disposable rehearsal journal/operation lock; contains no credentials.
 .local/owner-rehearsal*
+
+# Generated offline TEST dashboard preview; never an authenticated session.
+.local/dashboard-preview.html
