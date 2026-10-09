@@ -43,6 +43,7 @@ export async function getAdminProducts(requestHeaders: Headers, input: Input = {
   // One uncached authorization/identity read; no caller-provided roles or stock flags.
   const dashboard = await getAdminDashboard(requestHeaders, "catalog:read");
   const canViewInventory = hasAdminPermission(dashboard.role, "inventory:manage");
+  const canWriteProducts = hasAdminPermission(dashboard.role, "catalog:write");
   try {
     const filters = { search: text(input.search, 100), category: identifier(input.category) };
     const cursor = identifier(input.cursor); const limit = pageSize(input.limit);
@@ -58,10 +59,10 @@ export async function getAdminProducts(requestHeaders: Headers, input: Input = {
     ]);
     const items = rows.slice(0, limit).map(row => ({ id: row.id, name: row.name, slug: row.slug, lifecycle: row.lifecycle,
       category: row.category, variantCount: row._count.variants, exampleVariant: row.variants[0] ? variantDto(row.variants[0], canViewInventory) : null }));
-    return { dashboard, canViewInventory, items, filters, categories: categories.slice(0, 100), categoriesTruncated: categories.length > 100,
+    return { dashboard, canViewInventory, canWriteProducts, items, filters, categories: categories.slice(0, 100), categoriesTruncated: categories.length > 100,
       nextCursor: rows.length > limit ? items[items.length - 1].id : null, error: null };
   } catch (error) {
-    return { dashboard, canViewInventory, items: [], filters: { search: "", category: "" }, categories: [], categoriesTruncated: false,
+    return { dashboard, canViewInventory, canWriteProducts, items: [], filters: { search: "", category: "" }, categories: [], categoriesTruncated: false,
       nextCursor: null, error: error instanceof InvalidFilter ? "Invalid filters. Use a search of up to 100 characters and valid category/page selections." : "The catalogue is temporarily unavailable. Please retry." };
   }
 }
@@ -69,6 +70,7 @@ export async function getAdminProducts(requestHeaders: Headers, input: Input = {
 export async function getAdminProduct(requestHeaders: Headers, productId: string, cursorInput?: unknown) {
   const dashboard = await getAdminDashboard(requestHeaders, "catalog:read");
   const canViewInventory = hasAdminPermission(dashboard.role, "inventory:manage");
+  const canWriteProducts = hasAdminPermission(dashboard.role, "catalog:write");
   try {
     const id = identifier(productId);
     if (!id) throw new InvalidFilter();
@@ -77,16 +79,16 @@ export async function getAdminProduct(requestHeaders: Headers, productId: string
       id: true, name: true, slug: true, description: true, lifecycle: true, archivedAt: true, seoTitle: true, seoDescription: true,
       createdAt: true, updatedAt: true, category: { select: categorySelect }, _count: { select: { variants: true } },
     } });
-    if (!product) return { dashboard, canViewInventory, product: null, variants: [], nextCursor: null, error: null };
+    if (!product) return { dashboard, canViewInventory, canWriteProducts, product: null, variants: [], nextCursor: null, error: null };
     const rows = await prisma.productVariant.findMany({ where: { productId: id, ...(cursor ? { id: { gt: cursor } } : {}) },
       orderBy: { id: "asc" }, take: 21, select: variantSelect(canViewInventory) });
     const variants = rows.slice(0, 20).map(row => variantDto(row, canViewInventory));
     const { _count, ...information } = product;
-    return { dashboard, canViewInventory, product: { ...information, archivedAt: product.archivedAt?.toISOString() ?? null,
+    return { dashboard, canViewInventory, canWriteProducts, product: { ...information, archivedAt: product.archivedAt?.toISOString() ?? null,
       createdAt: product.createdAt.toISOString(), updatedAt: product.updatedAt.toISOString(), variantCount: _count.variants },
       variants, nextCursor: rows.length > 20 ? variants[variants.length - 1].id : null, error: null };
   } catch (error) {
-    return { dashboard, canViewInventory, product: null, variants: [], nextCursor: null,
+    return { dashboard, canViewInventory, canWriteProducts, product: null, variants: [], nextCursor: null,
       error: error instanceof InvalidFilter ? "Invalid product or variant page selection." : "Product details are temporarily unavailable. Please retry." };
   }
 }

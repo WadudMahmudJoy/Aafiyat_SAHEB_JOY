@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–009A completed; Task 009A catalogue checkpoint verification, 9 October 2026.
+Checkpoint: Tasks 001–009B completed; Task 009B draft product checkpoint verification, 9 October 2026.
 
 ## Completed work
 
@@ -22,6 +22,8 @@ Checkpoint: Tasks 001–009A completed; Task 009A catalogue checkpoint verificat
 - Task 008R and polish: unified OWNER dashboard, server-permission-derived staff navigation, responsive shell, safe identity display, and upcoming module placeholders. Existing four-role RBAC and mandatory MFA preserved.
 - Task 009A: protected read-only /admin/products and /admin/products/[id], integrated with dashboard navigation; name/slug search, category filters, and stable bounded cursor pagination.
 - Catalogue requires server-authorized catalog:read; exact inventory is selected and returned only with inventory:manage. Existing MFA, membership, and session checks remain mandatory; public catalogue is unchanged.
+- Task 009B: protected /admin/products/new and /admin/products/[id]/edit provide DRAFT creation and six-field metadata editing only; authorized Add/Edit navigation is integrated.
+- Draft writes require catalog:write, current MFA-backed active membership, same-origin requests, and server validation. Category references and duplicate slugs are checked; row locking and exact microsecond revisions prevent stale overwrites. Lifecycle and privileged fields cannot be submitted.
 - Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
@@ -76,6 +78,8 @@ Checkpoint: Tasks 001–009A completed; Task 009A catalogue checkpoint verificat
 - Offline preview is explicitly unauthenticated, uses a disabled mock sign-out, writes UTF-8 directly, and is ignored by Git. Original file-origin warning was not reproduced in clean Chrome under file:// or HTTP; no preview scripts or external resources exist.
 - Catalogue checkpoint: 20 database/service and 11 route/presentation/grammar checks, 21 live public catalogue checks, and 115 affected dashboard/login/HTTP/MFA/RBAC checks passed (167 total), plus public contract regressions. TypeScript, ESLint, production build, and whitespace checks passed.
 - Product listing/detail designs approved by the supervisor; prior TEST previews verified at all five dashboard viewport sizes. All 12 database fingerprints restored; five categories, four roles, no products or authentication identities remain.
+- Draft checkpoint: 20 write/security and 11 form/navigation/route checks, plus affected catalogue, public, dashboard, login, HTTP, MFA, and RBAC checks passed (198 total), with additional public contract regressions. TypeScript, ESLint, production build, and whitespace checks passed.
+- Add/Edit designs approved by the supervisor; prior disposable previews verified responsive controls and keyboard focus at all five viewport sizes. Fixture rollback restored all 12 fingerprints; final read-only preflight passed with five categories, four roles, and no products, Owner memberships, or authentication identities. Real-admin browser acceptance remains pending.
 
 ## Scope and pending decisions
 
@@ -90,4 +94,4 @@ Checkpoint: Tasks 001–009A completed; Task 009A catalogue checkpoint verificat
 
 Remaining: real-admin browser/MFA acceptance, production deployment, recovery policy, and operational security review. Authentication is not production-ready.
 Next work requires separate review and authorization; no real Owner provisioning is included.
-Product editing, stock adjustments, and media management remain upcoming. Orders, marketing, and administration business modules, staff onboarding, customers, and payments remain unimplemented; real-admin catalogue acceptance is pending.
+Variants, pricing, inventory adjustments, media management, and publishing remain upcoming. Orders, marketing, and administration business modules, staff onboarding, customers, and payments remain unimplemented; real-admin catalogue and draft-editing acceptance is pending.
