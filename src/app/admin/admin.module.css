@@ -1,0 +1,56 @@
+.shell { --forest: #153e33; --gold: #d8bf87; --ink: #263b32; min-height: 100svh; background: #f7f5ee; color: var(--ink); display: grid; grid-template-columns: minmax(360px, 46%) 1fr; padding: 20px; gap: 20px; }
+.brand { background: var(--forest); color: var(--gold); border-radius: 4px; padding: 42px 44px; display: flex; flex-direction: column; justify-content: space-between; min-height: calc(100svh - 40px); }
+.brandTop { font-size: 11px; letter-spacing: .16em; display: flex; justify-content: space-between; gap: 20px; }
+.brandTop span { color: #d8e2db; font-size: 10px; }
+.wordmark { text-align: center; padding: 55px 0; }
+.aafiyat { font-family: Georgia, "Times New Roman", serif; font-size: clamp(70px, 7.5vw, 120px); font-weight: 400; line-height: 1.12; letter-spacing: -.045em; }
+.saheb { font-family: Georgia, "Times New Roman", serif; font-size: 20px; letter-spacing: .38em; padding-left: .38em; margin-top: 16px; }
+.goldLine { width: 48px; height: 1px; background: var(--gold); margin: 36px auto 22px; }
+.tagline { color: #e8dcc2; font-family: Georgia, "Times New Roman", serif; font-size: 16px; font-style: italic; }
+.brandFoot { color: #d8e2db; font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.7; margin: 0; }
+.main { display: flex; align-items: center; justify-content: center; padding: 54px 32px; }
+.card { width: 100%; max-width: 420px; padding: 35px 0; }
+.eyebrow { font-size: 11px; letter-spacing: .19em; font-weight: 600; margin: 0 0 23px; color: #59654f; }
+.card h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(36px, 3.5vw, 48px); letter-spacing: -.035em; font-weight: 400; line-height: 1.12; margin: 0 0 18px; }
+.intro { color: #58645c; font-size: 15px; line-height: 1.7; margin: 0 0 35px; }
+.form { display: flex; flex-direction: column; }
+.form label { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+.form input { width: 100%; background: #fffefa; border: 1px solid #b7c0b4; border-radius: 4px; padding: 14px 15px; color: #24352c; font-size: 16px; min-height: 50px; margin-bottom: 24px; }
+.shell input, .shell button { font-family: Arial, Helvetica, sans-serif; }
+.shell :is(input, button):focus-visible { outline: 3px solid #806127; outline-offset: 3px; }
+.passwordRow { position: relative; }
+.passwordRow input { padding-right: 75px; }
+.reveal { position: absolute; right: 3px; top: 3px; height: 44px; min-width: 64px; background: none; border: 0; color: #35483c; font-size: 12px; cursor: pointer; }
+.primary { width: 100%; min-height: 52px; padding: 14px 20px; background: var(--forest); color: #fffdf7; border: 1px solid var(--forest); border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: background .15s; }
+.primary:hover { background: #214e40; }
+.primary:disabled, .reveal:disabled, .textButton:disabled { cursor: wait; opacity: .65; }
+.feedback { min-height: 24px; margin-bottom: 12px; font-size: 13px; line-height: 1.55; color: #8b3028; }
+.feedback p { margin: 0; }
+.feedback span { color: #526153; }
+.footnote { border-top: 1px solid #d8dccf; color: #617061; font-size: 12px; line-height: 1.8; margin-top: 30px; padding-top: 22px; }
+.stepHeading { font-family: Georgia, "Times New Roman", serif; font-size: 24px; margin-bottom: 10px; }
+.help, .notice { font-size: 14px; line-height: 1.7; color: #58645c; margin: 0 0 22px; }
+.notice { background: #e9eee5; padding: 14px; border-radius: 4px; }
+.code { letter-spacing: .32em; }
+.textButton { background: none; border: 0; padding: 15px; min-height: 46px; color: #354c3d; font-size: 13px; text-decoration: underline; cursor: pointer; margin-top: 8px; }
+.role { border: 1px solid #c9d2c4; border-radius: 4px; padding: 18px; font-size: 13px; margin-bottom: 28px; }
+.role strong { display: block; font-size: 16px; font-weight: 500; text-transform: capitalize; margin-top: 8px; }
+@media (max-width: 800px) { .shell { grid-template-columns: 1fr; padding: 0; gap: 0; } .brand { min-height: auto; padding: 26px 24px; border-radius: 0; } .brandTop { display: none; } .wordmark { padding: 12px 0; } .aafiyat { font-size: 64px; } .saheb { font-size: 14px; margin-top: 9px; } .goldLine { margin: 20px auto 12px; } .tagline { font-size: 14px; margin-bottom: 0; } .brandFoot { display: none; } .main { padding: 12px 28px 36px; } .card { padding: 30px 0; } }
+@media (max-width: 800px) and (max-height: 700px) {
+  .brand { padding: 16px 20px; }
+  .wordmark { padding: 4px 0; }
+  .aafiyat { font-size: 56px; }
+  .saheb { margin-top: 6px; }
+  .goldLine { margin: 12px auto 8px; }
+  .tagline { margin-top: 8px; }
+  .main { padding: 8px 20px 24px; }
+  .card { padding: 20px 0; }
+  .eyebrow { margin-bottom: 14px; }
+  .card h1 { margin-bottom: 12px; }
+  .intro { margin-bottom: 22px; }
+  .form label { margin-bottom: 8px; }
+  .form input { margin-bottom: 18px; }
+  .feedback { margin-bottom: 8px; }
+  .footnote { margin-top: 22px; padding-top: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .primary { transition: none; } }

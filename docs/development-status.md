@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–008P completed, 9 October 2026; disposable onboarding operator-confirmed.
+Checkpoint: Tasks 001–008Q and login polish completed, 9 October 2026; disposable onboarding operator-confirmed.
 
 ## Completed work
 
@@ -18,6 +18,7 @@ Checkpoint: Tasks 001–008P completed, 9 October 2026; disposable onboarding op
 - Tasks 008K–008M: disposable preview, Windows popup visibility fix, offline QR/manual-key UI, and operator acceptance completed.
 - Task 008O: TEST-only rehearsal utility, exact-ID cleanup, guarded recovery journal, and operator guide.
 - Task 008P and focused fixes: safe login diagnostics and memory-only confirmed password reuse; full interactive rehearsal operator-confirmed PASS.
+- Task 008Q and polish: branded email/password and separate TOTP login, server-protected /admin entry, role-only session API, sign-out/session-expiry handling, and favicon.
 - Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
@@ -64,6 +65,9 @@ Checkpoint: Tasks 001–008P completed, 9 October 2026; disposable onboarding op
 - Separately, operator-confirmed Task 008M: all seven manual checks passed—QR visibility/scanning, labels, Show/Hide, Done/X, Ctrl+C/timeout, and no observed secret output/persistent files.
 - Operator-confirmed Task 008P: inactive creation, enrollment, MFA login, atomic activation, permissions/revocation, post-activation login, exact cleanup, all 12 fingerprints, and final preflight passed.
 - No real Owner account exists; only disposable fixtures were provisioned/activated. Interactive rehearsal is not rerun for this checkpoint.
+- Login checkpoint: 10 form/transport/accessibility, 11 live login/access, 19 HTTP, 23 MFA, and 22 authorization checks passed (85 total); all 12 fixture fingerprints restored.
+- Desktop/mobile design accepted by the operator; 375×667 and 320×568 spacing verified without horizontal overflow, with accessible controls preserved. Favicon returns HTTP 200.
+- Unauthenticated /admin redirects to the fixed login route; session API returns generic 401 without private data; login remains public. TypeScript, ESLint, production build, and whitespace checks passed.
 
 ## Scope and pending decisions
 
@@ -76,5 +80,6 @@ Checkpoint: Tasks 001–008P completed, 9 October 2026; disposable onboarding op
 - Conditional launch modules and simplifying cardinalities await confirmation.
 - See the requirements and database blueprint for the authoritative detail.
 
-Next: Admin Login UI, subject to separate authorization.
-No real Owner provisioning, admin UI/CRUD, customers, orders, or payments implemented.
+Remaining: real-admin browser/MFA acceptance, production deployment, recovery policy, and operational security review. Authentication is not production-ready.
+Next work requires separate review and authorization; no dashboard or real Owner provisioning is included.
+No admin CRUD, customers, orders, or payments implemented.
