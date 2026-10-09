@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–008I implemented, 9 October 2026; human GUI acceptance pending.
+Checkpoint: Tasks 001–008M completed, 9 October 2026; local GUI acceptance operator-confirmed.
 
 ## Completed work
 
@@ -15,7 +15,8 @@ Checkpoint: Tasks 001–008I implemented, 9 October 2026; human GUI acceptance p
 - Task 007A: 21 live PostgreSQL integration checks passed; fixtures rolled back.
 - Tasks 008A–008E: Better Auth identity/session schema, roles, HTTP handler, and session-bound MFA proof.
 - Tasks 008F–008I: server-side MFA authorization and controlled local Owner onboarding; security fixes verified.
-- Authentication is **NOT production-ready**. Human Windows GUI acceptance remains pending.
+- Tasks 008K–008M: disposable preview, Windows popup visibility fix, offline QR/manual-key UI, and operator acceptance completed.
+- Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
 
@@ -54,9 +55,11 @@ Checkpoint: Tasks 001–008I implemented, 9 October 2026; human GUI acceptance p
 - Docker Engine was unavailable in Task 004; live verification passed in Task 005.
 - Catalog visibility, stock labels, DTO protection, pagination, and BIGINT checks passed.
 - After live catalog testing: five categories; zero products, variants, or balances.
-- Latest authentication checks: 21 onboarding, 23 MFA/live authorization, 22 authorization, 19 HTTP, and 6 viewer checks passed.
+- Authentication checks: 21 onboarding, 23 MFA/live authorization, 22 authorization, and 19 HTTP checks passed; viewer suite expanded to 16 checks.
 - Temporary identities removed; all 11 database fingerprints restored. Four roles, no auth users/admin memberships; no real Owner exists.
-- Viewer checks cover automated transport/lifecycle and PowerShell parsing; they do not establish human GUI acceptance.
+- Automated viewer checks cover exact QR/URI round-trip, manual-key matching/fallback, transport, native lifecycle, and parent cleanup.
+- Separately, operator-confirmed Task 008M: all seven manual checks passed—QR visibility/scanning, labels, Show/Hide, Done/X, Ctrl+C/timeout, and no observed secret output/persistent files.
+- No real Owner account exists; these tasks performed no real provisioning or activation. No new human GUI acceptance is claimed in 008N.
 
 ## Scope and pending decisions
 
@@ -69,5 +72,5 @@ Checkpoint: Tasks 001–008I implemented, 9 October 2026; human GUI acceptance p
 - Conditional launch modules and simplifying cardinalities await confirmation.
 - See the requirements and database blueprint for the authoritative detail.
 
-Next: disposable Windows GUI acceptance, subject to supervisor review; QR/manual setup UX needs improvement.
+Next: controlled Owner onboarding rehearsal and Admin Login UI, subject to separate authorization.
 No real Owner provisioning, admin UI/CRUD, customers, orders, or payments implemented.

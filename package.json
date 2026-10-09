@@ -34,6 +34,7 @@
     "eslint-config-next": "16.4.0",
     "postcss": "8.5.29",
     "prisma": "7.10.0",
+    "qr": "0.7.2",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "typescript": "6.0.3"
