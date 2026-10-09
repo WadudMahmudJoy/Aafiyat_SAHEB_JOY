@@ -1,6 +1,6 @@
 # Aafiyat Development Status
 
-Checkpoint: Tasks 001–008R and dashboard polish completed; Task 008S verification, 9 October 2026.
+Checkpoint: Tasks 001–009A completed; Task 009A catalogue checkpoint verification, 9 October 2026.
 
 ## Completed work
 
@@ -20,6 +20,8 @@ Checkpoint: Tasks 001–008R and dashboard polish completed; Task 008S verificat
 - Task 008P and focused fixes: safe login diagnostics and memory-only confirmed password reuse; full interactive rehearsal operator-confirmed PASS.
 - Task 008Q and polish: branded email/password and separate TOTP login, server-protected /admin entry, role-only session API, sign-out/session-expiry handling, and favicon.
 - Task 008R and polish: unified OWNER dashboard, server-permission-derived staff navigation, responsive shell, safe identity display, and upcoming module placeholders. Existing four-role RBAC and mandatory MFA preserved.
+- Task 009A: protected read-only /admin/products and /admin/products/[id], integrated with dashboard navigation; name/slug search, category filters, and stable bounded cursor pagination.
+- Catalogue requires server-authorized catalog:read; exact inventory is selected and returned only with inventory:manage. Existing MFA, membership, and session checks remain mandatory; public catalogue is unchanged.
 - Authentication is **NOT production-ready**. Production deployment, recovery policy, and operational security review remain pending.
 
 ## Current stack
@@ -72,6 +74,8 @@ Checkpoint: Tasks 001–008R and dashboard polish completed; Task 008S verificat
 - Dashboard checkpoint: 13 policy/access, 9 presentation/UTF-8, 7 session/sign-out, 10 login form, 12 live login, 19 HTTP, 23 MFA, and 22 authorization checks passed (115 total); all 12 database fingerprints restored.
 - Supervisor accepted desktop/mobile design. Chrome checks at 320×568, 375×667, 393×852, 768×1024, and 1440×900 passed without horizontal overflow; keyboard Workspace menu open/close and focus verified.
 - Offline preview is explicitly unauthenticated, uses a disabled mock sign-out, writes UTF-8 directly, and is ignored by Git. Original file-origin warning was not reproduced in clean Chrome under file:// or HTTP; no preview scripts or external resources exist.
+- Catalogue checkpoint: 20 database/service and 11 route/presentation/grammar checks, 21 live public catalogue checks, and 115 affected dashboard/login/HTTP/MFA/RBAC checks passed (167 total), plus public contract regressions. TypeScript, ESLint, production build, and whitespace checks passed.
+- Product listing/detail designs approved by the supervisor; prior TEST previews verified at all five dashboard viewport sizes. All 12 database fingerprints restored; five categories, four roles, no products or authentication identities remain.
 
 ## Scope and pending decisions
 
@@ -86,4 +90,4 @@ Checkpoint: Tasks 001–008R and dashboard polish completed; Task 008S verificat
 
 Remaining: real-admin browser/MFA acceptance, production deployment, recovery policy, and operational security review. Authentication is not production-ready.
 Next work requires separate review and authorization; no real Owner provisioning is included.
-Products/inventory management, orders, marketing, and administration business modules remain upcoming. No admin CRUD, staff onboarding, customers, orders, or payments implemented.
+Product editing, stock adjustments, and media management remain upcoming. Orders, marketing, and administration business modules, staff onboarding, customers, and payments remain unimplemented; real-admin catalogue acceptance is pending.

@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_LOGIN, checkAdminSession, signOut } from "@/lib/admin-login-client";
 import type { AdminDashboardData } from "@/lib/admin-dashboard";
 import DashboardView from "./dashboard-view";
 
-export default function AdminSession({ dashboard }: { dashboard: AdminDashboardData }) {
+export default function AdminSession({ dashboard, children, currentPage = "overview" }: { dashboard: AdminDashboardData; children?: ReactNode; currentPage?: "overview" | "products" }) {
   const router = useRouter();
   const [state, setState] = useState<"ready" | "checking" | "unavailable">("ready");
   const [busy, setBusy] = useState(false);
@@ -39,5 +39,5 @@ export default function AdminSession({ dashboard }: { dashboard: AdminDashboardD
     try { await signOut(); router.replace(ADMIN_LOGIN); router.refresh(); }
     catch { setState("unavailable"); setBusy(false); }
   }
-  return <DashboardView dashboard={dashboard} state={state} busy={busy} onSignOut={leave} onRetry={() => { void retryCheck.current?.(); }} />;
+  return <DashboardView dashboard={dashboard} state={state} busy={busy} onSignOut={leave} onRetry={() => { void retryCheck.current?.(); }} currentPage={currentPage}>{children}</DashboardView>;
 }

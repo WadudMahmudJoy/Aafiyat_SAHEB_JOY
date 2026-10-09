@@ -14,6 +14,10 @@
 .navList li { margin-bottom: 6px; }
 .current { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px; background: #2b5143; border-left: 2px solid var(--gold); border-radius: 3px; text-decoration: none; color: #fff9eb; font-size: 14px !important; }
 .current:hover { background: #365e4e; }
+.navLink { display: block; padding: 14px 12px; min-height: 48px; color: #f4efdf; font-size: 13px !important; line-height: 1.5; text-decoration: none; border-radius: 3px; }
+.navLink:hover { background: #2b5143; }
+.navLink small, .current small { display: block; font-size: 10px; color: #d8bf87; margin-top: 4px; }
+.area h3 a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .upcomingNav { display: block; padding: 14px 12px; font-size: 13px; line-height: 1.5; color: #d8e2db; }
 .upcomingNav small { display: block; font-size: 10px; color: #d8bf87; margin-top: 4px; }
 .sidebarFoot { margin-top: auto; padding-top: 40px; font: italic 12px/1.6 Georgia, serif; color: #c0cec4; }
