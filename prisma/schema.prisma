@@ -59,6 +59,7 @@ model ProductVariant {
   updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   product          Product           @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   inventoryBalance InventoryBalance?
+  stockMovements   StockMovement[]
 
   @@unique([productId, sizeCode, colorCode])
   @@unique([productId, id])
@@ -77,6 +78,30 @@ model InventoryBalance {
 
   // Available stock is derived as onHand - reserved; no duplicate stored value.
   @@map("inventory_balances")
+}
+
+// Manual receiving/correction ledger only. Checks and append-only guards live in SQL.
+model StockMovement {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  variantId          String         @map("variant_id") @db.Uuid
+  movementType       String         @map("movement_type")
+  deltaOnHand        Int            @map("delta_on_hand")
+  deltaReserved      Int            @default(0) @map("delta_reserved")
+  onHandBefore       Int            @map("on_hand_before")
+  onHandAfter        Int            @map("on_hand_after")
+  reservedBefore     Int            @map("reserved_before")
+  reservedAfter      Int            @map("reserved_after")
+  actorAdminId       String         @map("actor_admin_id") @db.Uuid
+  reason             String
+  createdAt          DateTime       @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  idempotencyKey     String         @unique @map("idempotency_key") @db.Uuid
+  requestFingerprint String         @map("request_fingerprint") @db.VarChar(64)
+  variant            ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actorAdmin         AdminUser      @relation(fields: [actorAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([variantId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([actorAdminId])
+  @@map("stock_movements")
 }
 
 // Better Auth owns identity/session storage; application memberships are separate.
@@ -191,6 +216,7 @@ model AdminUser {
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   user       User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   role       AdminRole @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  stockMovements StockMovement[]
 
   @@index([roleId])
   @@map("admin_users")
