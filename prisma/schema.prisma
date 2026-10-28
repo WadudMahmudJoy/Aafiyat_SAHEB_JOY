@@ -60,6 +60,7 @@ model ProductVariant {
   product          Product           @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   inventoryBalance InventoryBalance?
   stockMovements   StockMovement[]
+  orderItems       OrderItem[]
 
   @@unique([productId, sizeCode, colorCode])
   @@unique([productId, id])
@@ -217,7 +218,111 @@ model AdminUser {
   user       User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   role       AdminRole @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   stockMovements StockMovement[]
+  acknowledgedOrders Order[]
+  orderEvents OrderEvent[]
 
   @@index([roleId])
   @@map("admin_users")
+}
+
+// Administrative foundation only. Customer authentication/claiming is not enabled.
+model Customer {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  displayName String @map("display_name")
+  phone String @map("phone_e164")
+  email String?
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  accounts CustomerAccount[]
+  orders Order[]
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([phone])
+  @@map("customers")
+}
+
+model CustomerAccount {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String @unique @map("customer_id") @db.Uuid
+  identityIssuer String @map("identity_issuer")
+  identitySubject String @map("identity_subject")
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+  disabledAt DateTime? @map("disabled_at") @db.Timestamptz(6)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  orders Order[]
+  @@unique([identityIssuer, identitySubject])
+  @@unique([customerId, id])
+  @@map("customer_accounts")
+}
+
+model Order {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderNumber String @unique @map("order_number")
+  customerId String @map("customer_id") @db.Uuid
+  ownerAccountId String? @map("owner_account_id") @db.Uuid
+  currency String @default("BDT") @db.Char(3)
+  subtotalMinor BigInt @map("subtotal_minor")
+  discountMinor BigInt @map("discount_minor")
+  shippingMinor BigInt @map("shipping_minor")
+  taxMinor BigInt @map("tax_minor")
+  totalMinor BigInt @map("total_minor")
+  paymentMode String @default("online_prepaid") @map("payment_mode")
+  paymentStatus String @default("unpaid") @map("payment_status")
+  fulfillmentStatus String @default("unfulfilled") @map("fulfillment_status")
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(6)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  acknowledgedBy String? @map("acknowledged_by") @db.Uuid
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+  contactName String @map("contact_name")
+  contactPhone String @map("contact_phone")
+  contactEmail String? @map("contact_email")
+  shippingAddress String @map("shipping_address")
+  shippingRuleSnapshot Json @map("shipping_rule_snapshot")
+  policySnapshot Json @map("policy_snapshot")
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  creationXid BigInt @default(dbgenerated("txid_current()")) @map("creation_xid")
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ownerAccount CustomerAccount? @relation(fields: [customerId, ownerAccountId], references: [customerId, id], onDelete: Restrict, onUpdate: Restrict)
+  acknowledger AdminUser? @relation(fields: [acknowledgedBy], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  items OrderItem[]
+  events OrderEvent[]
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([customerId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([ownerAccountId])
+  @@index([acknowledgedBy])
+  @@index([paymentStatus, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([fulfillmentStatus, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  variantId String @map("variant_id") @db.Uuid
+  productName String @map("product_name")
+  sku String
+  sizeLabel String @map("size_label")
+  colorLabel String @map("color_label")
+  quantity Int
+  unitPriceMinor BigInt @map("unit_price_minor")
+  discountMinor BigInt @map("discount_minor")
+  totalMinor BigInt @map("total_minor")
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([orderId, variantId])
+  @@index([variantId])
+  @@map("order_items")
+}
+
+model OrderEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  kind String
+  actorAdminId String? @map("actor_admin_id") @db.Uuid
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor AdminUser? @relation(fields: [actorAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@index([orderId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([actorAdminId])
+  @@map("order_events")
 }

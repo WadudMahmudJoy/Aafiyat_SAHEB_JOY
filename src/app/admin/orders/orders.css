@@ -1,0 +1,1 @@
+.commerceFilters { flex-wrap:wrap; } .commerceFilters > div { flex:1 1 160px; } .commerceFilters select { padding:.8rem; border:1px solid #b8b8aa; background:#fff; color:#242622; font:inherit; min-height:44px; max-width:100%; } @media(max-width:768px){.commerceFilters > div { flex-basis:100%; }}

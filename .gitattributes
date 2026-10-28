@@ -1,0 +1,2 @@
+# Preserve the reviewed Prisma checksum across Windows and Unix checkouts.
+prisma/migrations/20261028000000_add_orders_customers/migration.sql text eol=lf
