@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { requireAdminPermission } from "@/lib/admin-authorization";
 import { validateReceiving, type ReceivingInput } from "@/lib/inventory-validation";
+import { validateCorrection, type CorrectionInput } from "@/lib/inventory-validation";
 
 export type ReceivingReceipt = Readonly<{
   id: string; productId: string; variantId: string; movementType: string;
@@ -163,5 +164,134 @@ export async function receiveStock(headers: Headers, rawInput: unknown): Promise
   } catch (error) {
     const code = error instanceof ReceivingError ? error.code : "UNAVAILABLE";
     return { ok: false, code, message: messages[code] };
+  }
+}
+
+// Historical immutable movement receipt, never a claim about current stock.
+export type CorrectionReceipt = ReceivingReceipt;
+type CorrectionFailureCode = "ACCESS_DENIED" | "VALIDATION" | "NOT_FOUND" | "INELIGIBLE" | "CONFLICT" | "NO_CHANGE" | "BELOW_RESERVED" | "UNAVAILABLE";
+export type CorrectionResult = { ok: true; receipt: CorrectionReceipt } | { ok: false; code: CorrectionFailureCode; message: string };
+class CorrectionError extends Error {
+  constructor(readonly code: CorrectionFailureCode) { super(code); }
+}
+const correctionMessages: Record<CorrectionFailureCode, string> = {
+  ACCESS_DENIED: "Stock correction access denied.",
+  VALIDATION: "Supply only valid product, variant, counted quantity, exact expected revision, reason and idempotency key fields.",
+  NOT_FOUND: "Product or variant unavailable.",
+  INELIGIBLE: "This product or variant cannot undergo stock correction.",
+  CONFLICT: "This request conflicts with its idempotency key or the inventory revision. Reload the inventory before making a new correction.",
+  NO_CHANGE: "The counted quantity does not change stock.",
+  BELOW_RESERVED: "The counted quantity cannot be below reserved stock.",
+  UNAVAILABLE: "Correction could not be confirmed. Retry the same request with the same idempotency key.",
+};
+
+async function lockCorrectionEligible(tx: Prisma.TransactionClient, input: CorrectionInput) {
+  await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
+  await tx.$executeRaw`SET LOCAL statement_timeout = '5s'`;
+  const [product] = await tx.$queryRaw<{ lifecycle: string; unarchived: boolean }[]>`
+    SELECT lifecycle, archived_at IS NULL AS unarchived
+    FROM products WHERE id = ${input.productId}::uuid FOR UPDATE`;
+  if (!product) throw new CorrectionError("NOT_FOUND");
+  if (!["draft", "active", "discontinued"].includes(product.lifecycle) || product.unarchived !== true) throw new CorrectionError("INELIGIBLE");
+  const [variant] = await tx.$queryRaw<{ active: boolean; unarchived: boolean }[]>`
+    SELECT active, archived_at IS NULL AS unarchived FROM product_variants
+    WHERE id = ${input.variantId}::uuid AND product_id = ${input.productId}::uuid FOR UPDATE`;
+  if (!variant) throw new CorrectionError("NOT_FOUND");
+  // Physical reconciliation also permits inactive, unarchived variants. It does
+  // not reactivate them or make a discontinued product sellable.
+  if (typeof variant.active !== "boolean" || variant.unarchived !== true) throw new CorrectionError("INELIGIBLE");
+}
+
+function correctionReceipt(row: MovementRow, input: CorrectionInput, actor: string, fingerprint: string): CorrectionReceipt {
+  if (row.actorAdminId !== actor || row.productId !== input.productId || row.variantId !== input.variantId ||
+      row.requestFingerprint !== fingerprint || row.movementType !== "correction") throw new CorrectionError("CONFLICT");
+  return Object.freeze({
+    id: row.id, productId: row.productId, variantId: row.variantId, movementType: row.movementType,
+    deltaOnHand: row.deltaOnHand, deltaReserved: row.deltaReserved,
+    onHandBefore: row.onHandBefore, onHandAfter: row.onHandAfter,
+    reservedBefore: row.reservedBefore, reservedAfter: row.reservedAfter,
+    reason: row.reason, idempotencyKey: row.idempotencyKey, createdAt: row.createdAt,
+  });
+}
+
+export async function correctStock(headers: Headers, rawInput: unknown): Promise<CorrectionResult> {
+  try {
+    const { adminUserId } = await writer(headers);
+    const parsed = validateCorrection(rawInput);
+    if (!parsed.valid) throw new CorrectionError("VALIDATION");
+    const input = parsed.values;
+    const canonical = JSON.stringify({
+      version: 1, operation: "correction", actorAdminId: adminUserId,
+      productId: input.productId, variantId: input.variantId, targetOnHand: String(input.targetOnHand),
+      expectedRevision: input.expectedRevision, reason: input.reason,
+    });
+    const fingerprint = createHash("sha256").update(canonical, "utf8").digest("hex");
+    try {
+      const saved = await prisma.$transaction(async tx => {
+        // Same global lock order as receiving: Product -> Variant -> Balance.
+        await lockCorrectionEligible(tx, input);
+        const existing = await movement(tx, input.idempotencyKey);
+        if (existing) return correctionReceipt(existing, input, adminUserId, fingerprint);
+        const rows = await tx.$queryRaw<{ onHand: number; reserved: number; revision: string }[]>`
+          SELECT on_hand AS "onHand", reserved,
+            to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS revision
+          FROM inventory_balances WHERE variant_id = ${input.variantId}::uuid FOR UPDATE`;
+        const balance = rows[0];
+        if ((balance?.revision ?? "missing") !== input.expectedRevision) throw new CorrectionError("CONFLICT");
+        const before = balance?.onHand ?? 0;
+        const reserved = balance?.reserved ?? 0;
+        if (!Number.isInteger(before) || !Number.isInteger(reserved) || before < 0 || before > 2147483647 ||
+            reserved < 0 || reserved > before) throw new CorrectionError("UNAVAILABLE");
+        if (input.targetOnHand < reserved) throw new CorrectionError("BELOW_RESERVED");
+        if (input.targetOnHand === before) throw new CorrectionError("NO_CHANGE");
+        const delta = BigInt(input.targetOnHand) - BigInt(before);
+        if (delta < BigInt(-2147483647) || delta > BigInt(2147483647)) throw new CorrectionError("UNAVAILABLE");
+        if (!balance) {
+          // No row is created for stale, missing-revision, reserved or no-op
+          // failures. The parent/variant locks serialize compliant initializers.
+          // A competing initializer outside that convention must conflict.
+          const initialized = await tx.$queryRaw<{ variantId: string }[]>`
+            INSERT INTO inventory_balances (variant_id) VALUES (${input.variantId}::uuid)
+            ON CONFLICT (variant_id) DO NOTHING RETURNING variant_id AS "variantId"`;
+          if (initialized.length !== 1) throw new CorrectionError("CONFLICT");
+          const [initial] = await tx.$queryRaw<{ onHand: number; reserved: number }[]>`
+            SELECT on_hand AS "onHand", reserved FROM inventory_balances
+            WHERE variant_id = ${input.variantId}::uuid FOR UPDATE`;
+          if (!initial || initial.onHand !== 0 || initial.reserved !== 0) throw new CorrectionError("CONFLICT");
+        }
+        // Preserve reserved and threshold. Exact revisions stay inside SQL/text;
+        // future writers must independently obey the same monotonic convention.
+        const updated = await tx.$queryRaw<{ variantId: string }[]>`
+          UPDATE inventory_balances SET on_hand = ${input.targetOnHand},
+            updated_at = GREATEST(clock_timestamp(), updated_at + interval '1 microsecond')
+          WHERE variant_id = ${input.variantId}::uuid RETURNING variant_id AS "variantId"`;
+        if (updated.length !== 1) throw new CorrectionError("UNAVAILABLE");
+        await tx.stockMovement.create({ data: {
+          variantId: input.variantId, movementType: "correction", deltaOnHand: Number(delta), deltaReserved: 0,
+          onHandBefore: before, onHandAfter: input.targetOnHand, reservedBefore: reserved, reservedAfter: reserved,
+          actorAdminId: adminUserId, reason: input.reason, idempotencyKey: input.idempotencyKey, requestFingerprint: fingerprint,
+        }, select: { id: true } });
+        const row = await movement(tx, input.idempotencyKey);
+        if (!row) throw new CorrectionError("UNAVAILABLE");
+        return correctionReceipt(row, input, adminUserId, fingerprint);
+      }, transactionOptions);
+      return { ok: true, receipt: saved };
+    } catch (error) {
+      // Recovery starts only after the entire attempted transaction rolled back.
+      if (!idempotencyViolation(error)) throw error;
+      const current = await writer(headers);
+      if (current.adminUserId !== adminUserId) throw new CorrectionError("CONFLICT");
+      const saved = await prisma.$transaction(async tx => {
+        await lockCorrectionEligible(tx, input);
+        const row = await movement(tx, input.idempotencyKey);
+        if (!row) throw new CorrectionError("UNAVAILABLE");
+        return correctionReceipt(row, input, current.adminUserId, fingerprint);
+      }, transactionOptions);
+      return { ok: true, receipt: saved };
+    }
+  } catch (error) {
+    const code: CorrectionFailureCode = error instanceof CorrectionError ? error.code :
+      error instanceof ReceivingError && error.code === "ACCESS_DENIED" ? "ACCESS_DENIED" : "UNAVAILABLE";
+    return { ok: false, code, message: correctionMessages[code] };
   }
 }

@@ -5,7 +5,7 @@ import { ADMIN_LOGIN, checkAdminSession, signOut } from "@/lib/admin-login-clien
 import type { AdminDashboardData } from "@/lib/admin-dashboard";
 import DashboardView from "./dashboard-view";
 
-export default function AdminSession({ dashboard, children, currentPage = "overview" }: { dashboard: AdminDashboardData; children?: ReactNode; currentPage?: "overview" | "products" }) {
+export default function AdminSession({ dashboard, children, currentPage = "overview" }: { dashboard: AdminDashboardData; children?: ReactNode; currentPage?: "overview" | "products" | "inventory" }) {
   const router = useRouter();
   const [state, setState] = useState<"ready" | "checking" | "unavailable">("ready");
   const [busy, setBusy] = useState(false);

@@ -27,3 +27,7 @@ postgres-data/
 
 # Local concurrency evidence contains machine-specific diagnostics; never checkpoint.
 /docs/task-009d-2c-2v-results.json
+
+# Disposable authenticated inventory verification build output and source copies.
+/.local/inventory-a1-*/
+/.playwright-mcp/

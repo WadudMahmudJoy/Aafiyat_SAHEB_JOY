@@ -20,7 +20,8 @@ const name = `aafiyat-receive-009d2c2v-${id}`;
 const database = `receive_verify_${id.replaceAll("-", "")}`;
 const work = join(tmpdir(), name);
 mkdirSync(work);
-const reportPath = join(root, "docs", "task-009d-2c-2v-results.json");
+const correctionMode = process.env.INVENTORY_VERIFY_CORRECTION === "1";
+const reportPath = correctionMode ? join(work, "correction-results.json") : join(root, "docs", "task-009d-2c-2v-results.json");
 const report = { task: "009D-2C-2V", runId: id, startedAt: new Date().toISOString(), containerName: name, database, status: "RUNNING" };
 if (existsSync(reportPath)) {
   const previous = JSON.parse(readFileSync(reportPath, "utf8"));
@@ -65,7 +66,7 @@ async function developmentSnapshot() {
 }
 async function runChild(env) {
   return new Promise((resolveChild, reject) => {
-    const child = spawn(process.execPath, ["--conditions=react-server", "--import", "tsx", "scripts/verify-admin-inventory-concurrency.ts"],
+    const child = spawn(process.execPath, ["--conditions=react-server", "--import", "tsx", correctionMode ? "scripts/verify-inventory-admin-concurrency.ts" : "scripts/verify-admin-inventory-concurrency.ts"],
       { cwd: root, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     child.stdout.on("data", chunk => process.stdout.write(chunk));
     child.stderr.on("data", chunk => process.stderr.write(chunk));
@@ -81,7 +82,7 @@ let beforeContainers;
 let admin;
 try {
   assert.equal(command("git", ["branch", "--show-current"]), "main");
-  assert.equal(command("git", ["rev-parse", "HEAD"]), "aedb3a0ec962f33a0b1ee88d7284918ff6ba5ab0");
+  assert.equal(command("git", ["rev-parse", "HEAD"]), correctionMode ? "ee8a287d424ff123581259c11e4b83ea06c9758e" : "aedb3a0ec962f33a0b1ee88d7284918ff6ba5ab0");
   const tracked = command("git", ["ls-files", "-z"]).split("\0").filter(Boolean);
   preserved = Object.fromEntries([...tracked, ...receiving].map(path => [path, sha(path)]));
   report.initialGitStatus = command("git", ["status", "--short"]);

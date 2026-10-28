@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminPermission } from "@/lib/admin-authorization";
 
 const AREAS = [
-  { id: "products", label: "Products and Inventory", description: "Care for the catalog, from product details to stock.",
-    features: [{ label: "Product catalog", permission: "catalog:read" }, { label: "Product management", permission: "catalog:write" }, { label: "Inventory management", permission: "inventory:manage" }] },
+  { id: "products", label: "Products and Inventory", description: "Care for the product catalog, variants and pricing.",
+    features: [{ label: "Product catalog", permission: "catalog:read" }, { label: "Product management", permission: "catalog:write" }] },
+  { id: "inventory", label: "Inventory", description: "Receive stock, reconcile physical counts and review the movement ledger.",
+    features: [{ label: "Stock receiving", permission: "inventory:manage" }, { label: "Counted corrections", permission: "inventory:manage" }, { label: "Stock movement history", permission: "inventory:manage" }] },
   { id: "orders", label: "Orders", description: "Keep customer orders moving with clarity and care.",
     features: [{ label: "Order history", permission: "orders:read" }, { label: "Order management", permission: "orders:manage" }] },
   { id: "marketing", label: "Marketing", description: "Shape the brand experience and future campaigns.",
@@ -18,7 +20,7 @@ const AREAS = [
 // Policy projection only. The caller must use a server-authorized principal.
 export function dashboardAreas(role: string) {
   return AREAS.map(area => ({ id: area.id, label: area.label, description: area.description,
-    href: area.id === "products" ? "/admin/products" : null,
+    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : null,
     features: area.features.filter(feature => hasAdminPermission(role, feature.permission)).map(feature => feature.label),
   })).filter(area => area.features.length > 0);
 }
