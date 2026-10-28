@@ -24,3 +24,6 @@ postgres-data/
 
 # Generated offline TEST dashboard preview; never an authenticated session.
 .local/dashboard-preview.html
+
+# Local concurrency evidence contains machine-specific diagnostics; never checkpoint.
+/docs/task-009d-2c-2v-results.json
