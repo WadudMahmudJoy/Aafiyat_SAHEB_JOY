@@ -42,6 +42,8 @@ export function sessionMfaProof(): BetterAuthPlugin {
           const written = await prisma.$transaction(async tx => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(88008, hashtext(${challenge.userId}))`;
             const membership = await tx.adminUser.findUnique({ where: { userId: challenge.userId }, include: { role: true } });
+            // Shared with governance mutations: pending password challenges cannot cross a role/status boundary.
+            if (membership && challenge.challengeCreatedAt <= membership.authorizationNotBefore) return false;
             if (membership?.active && membership.role.name === "OWNER" &&
                 challenge.challengeCreatedAt <= membership.updatedAt) return false;
             if (await tx.verification.findUnique({ where: { id: challenge.id } })) return false;

@@ -56,7 +56,7 @@ async function verify() {
   // In-memory probes only: no identity, session, or admin fixture is inserted.
   type SessionResult = Awaited<ReturnType<typeof auth.api.getSession>>;
   type Membership = Prisma.AdminUserGetPayload<{
-    select: { id: true; userId: true; active: true; disabledAt: true; role: { select: { name: true } } };
+    select: { id: true; userId: true; active: true; disabledAt: true; authorizationNotBefore: true; role: { select: { name: true } } };
   }>;
   const now = new Date();
   const validSession = {
@@ -67,7 +67,7 @@ async function verify() {
   } satisfies NonNullable<SessionResult>;
   let session: SessionResult = validSession;
   const activeAdmin: Membership = {
-    id: "008b-admin-probe", userId: validSession.user.id, active: true, disabledAt: null, role: { name: "OWNER" },
+    id: "008b-admin-probe", userId: validSession.user.id, active: true, disabledAt: null, authorizationNotBefore: new Date(0), role: { name: "OWNER" },
   };
   let membership: Membership | null = activeAdmin;
   let membershipReads = 0;
@@ -89,7 +89,7 @@ async function verify() {
     assert.ok(Reflect.set(prisma.adminUser, "findUnique", async (args: Prisma.AdminUserFindUniqueArgs) => {
       membershipReads++;
       assert.deepEqual(args.where, { userId: validSession.user.id });
-      assert.deepEqual(args.select, { id: true, userId: true, active: true, disabledAt: true, role: { select: { name: true } } });
+      assert.deepEqual(args.select, { id: true, userId: true, active: true, disabledAt: true, authorizationNotBefore: true, role: { select: { name: true } } });
       return membership;
     }));
     await test("missing session skips membership lookup", async () => {
@@ -106,6 +106,11 @@ async function verify() {
       await deny("catalog:read", "UNAUTHENTICATED");
     });
     session = validSession;
+    await test("membership cutoff rejects a retained pre-change session", async () => {
+      membership = { ...activeAdmin, authorizationNotBefore: now };
+      await deny("admins:manage", "UNAUTHENTICATED");
+      membership = activeAdmin;
+    });
     await test("missing admin membership denied", async () => {
       membership = null;
       await deny("catalog:read", "ADMIN_MEMBERSHIP_REQUIRED");

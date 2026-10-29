@@ -1,5 +1,5 @@
 import "server-only";
-import type { AdminRoleName } from "@/generated/prisma/client";
+import type { AdminRoleName, Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasAdminPermission, type AdminPermission } from "@/lib/admin-permissions";
@@ -34,6 +34,7 @@ const MAX_MFA_PROOF_AGE_MS = 12 * 60 * 60 * 1000;
 export async function requireAdminPermission(
   permission: AdminPermission,
   requestHeaders: Headers,
+  database: Pick<Prisma.TransactionClient, "adminUser" | "session"> = prisma,
 ): Promise<AdminPrincipal> {
   let authenticated;
   try {
@@ -59,10 +60,10 @@ export async function requireAdminPermission(
 
   let admin;
   try {
-    admin = await prisma.adminUser.findUnique({
+    admin = await database.adminUser.findUnique({
       where: { userId: authenticated.user.id },
       select: {
-        id: true, userId: true, active: true, disabledAt: true,
+        id: true, userId: true, active: true, disabledAt: true, authorizationNotBefore: true,
         role: { select: { name: true } },
       },
     });
@@ -78,7 +79,7 @@ export async function requireAdminPermission(
   }
   let current;
   try {
-    current = await prisma.session.findUnique({
+    current = await database.session.findUnique({
       where: { id: authenticated.session.id },
       select: {
         id: true, userId: true, token: true, createdAt: true, expiresAt: true, mfaVerifiedAt: true,
@@ -92,6 +93,10 @@ export async function requireAdminPermission(
   if (!current || current.id !== authenticated.session.id || current.userId !== authenticated.user.id ||
       current.token !== authenticated.session.token || !Number.isFinite(current.expiresAt.getTime()) ||
       current.expiresAt.getTime() <= now || current.createdAt.getTime() !== authenticated.session.createdAt.getTime()) {
+    throw new AdminAuthorizationError("UNAUTHENTICATED");
+  }
+  const cutoff = admin.authorizationNotBefore?.getTime() ?? NaN;
+  if (!Number.isFinite(cutoff) || current.createdAt.getTime() <= cutoff) {
     throw new AdminAuthorizationError("UNAUTHENTICATED");
   }
   const proof = current.mfaVerifiedAt?.getTime() ?? NaN;

@@ -214,6 +214,8 @@ model AdminRole {
 }
 
 model AdminUser {
+  governanceVersion BigInt @default(1) @map("governance_version")
+  authorizationNotBefore DateTime @default(dbgenerated("'epoch'::timestamptz")) @map("authorization_not_before") @db.Timestamptz(3)
  contentEntries ContentEntry[]
  contentAssets ContentAsset[]
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -234,6 +236,7 @@ model AdminUser {
   businessAudit AuditLog[]
   orderEvents OrderEvent[]
 
+  @@index([active, roleId, id])
   @@index([roleId])
   @@map("admin_users")
 }
@@ -347,6 +350,7 @@ model AuditLog {
  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
  actor AdminUser @relation(fields:[actorId],references:[id],onDelete:Restrict,onUpdate:Restrict)
  @@index([entityId,createdAt(sort:Desc),id])
+ @@index([action,createdAt(sort: Desc),id(sort: Desc)])
  @@map("audit_logs")
 }
 

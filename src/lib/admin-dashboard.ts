@@ -19,6 +19,8 @@ const AREAS = [
     features: [{ label: "Offers and campaigns", permission: "marketing:manage" }, { label: "Content management", permission: "content:manage" }] },
   { id: "content", label: "Content", description: "Homepage, pages and size guides.", features: [{ label: "Content management", permission: "content:manage" }] },
   { id: "settings", label: "Business settings", description: "Shipping, consent and policy configuration.", features: [{ label: "Business settings", permission: "settings:manage" }] },
+  { id: "staff", label: "Administrators", description: "Existing membership governance.", features: [{ label: "Administrator management", permission: "admins:manage" }] },
+  { id: "audit", label: "Audit history", description: "Recorded administrative changes.", features: [{ label: "Activity auditing", permission: "audit:read" }] },
   { id: "administration", label: "Administration", description: "Manage business settings, staff access, and accountability.",
     features: [{ label: "Business settings", permission: "settings:manage" }, { label: "Administrator management", permission: "admins:manage" }, { label: "Activity auditing", permission: "audit:read" }] },
 ] satisfies { id: string; label: string; description: string; features: { label: string; permission: AdminPermission }[] }[];
@@ -26,7 +28,7 @@ const AREAS = [
 // Policy projection only. The caller must use a server-authorized principal.
 export function dashboardAreas(role: string) {
   return AREAS.map(area => ({ id: area.id, label: area.label, description: area.description,
-    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : area.id === "categories" ? "/admin/categories" : area.id === "orders" ? "/admin/orders" : area.id === "customers" ? "/admin/customers" : area.id === "marketing" ? "/admin/marketing" : area.id === "settings" ? "/admin/settings" : area.id === "content" ? "/admin/content" : null,
+    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : area.id === "categories" ? "/admin/categories" : area.id === "orders" ? "/admin/orders" : area.id === "customers" ? "/admin/customers" : area.id === "marketing" ? "/admin/marketing" : area.id === "settings" ? "/admin/settings" : area.id === "content" ? "/admin/content" : area.id === "staff" ? "/admin/staff" : area.id === "audit" ? "/admin/audit" : null,
     features: area.features.filter(feature => hasAdminPermission(role, feature.permission)).map(feature => feature.label),
   })).filter(area => area.features.length > 0);
 }
