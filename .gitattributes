@@ -1,3 +1,5 @@
 # Preserve the reviewed Prisma checksum across Windows and Unix checkouts.
 prisma/migrations/20261028000000_add_orders_customers/migration.sql text eol=lf
 prisma/migrations/20261029000000_add_product_media_lifecycle/migration.sql text eol=lf
+prisma/migrations/20261030000000_add_business_settings_offers/migration.sql text eol=lf
+prisma/migrations/20261030010000_add_content_cms/migration.sql text eol=lf

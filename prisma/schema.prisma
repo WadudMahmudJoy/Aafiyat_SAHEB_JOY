@@ -9,6 +9,7 @@ datasource db {
 }
 
 model Category {
+ cmsReferences ContentReference[]
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String
   slug           String    @unique
@@ -25,6 +26,7 @@ model Category {
 }
 
 model Product {
+ cmsReferences ContentReference[]
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   categoryId     String           @map("category_id") @db.Uuid
   name           String
@@ -212,6 +214,8 @@ model AdminRole {
 }
 
 model AdminUser {
+ contentEntries ContentEntry[]
+ contentAssets ContentAsset[]
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId     String    @unique @map("user_id")
   roleId     String    @map("role_id") @db.Uuid
@@ -225,10 +229,125 @@ model AdminUser {
   acknowledgedOrders Order[]
   mediaAssets MediaAsset[]
   productEvents ProductLifecycleEvent[]
+  settingsChanges BusinessSettings[]
+  offers Offer[]
+  businessAudit AuditLog[]
   orderEvents OrderEvent[]
 
   @@index([roleId])
   @@map("admin_users")
+}
+
+model ContentEntry {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ kind String
+ slug String @unique
+ title String
+ subtitle String @default("")
+ body String @default("")
+ ctaLabel String @default("") @map("cta_label")
+ ctaUrl String @default("") @map("cta_url")
+ seoTitle String @default("") @map("seo_title")
+ seoDescription String @default("") @map("seo_description")
+ state String @default("draft")
+ visible Boolean @default(false)
+ sortOrder Int @default(0) @map("sort_order")
+ measurements Json?
+ version BigInt @default(1)
+ updatedBy String @map("updated_by") @db.Uuid
+ updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+ coverId String? @map("cover_id") @db.Uuid
+ actor AdminUser @relation(fields:[updatedBy],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ assets ContentAsset[] @relation("OwnedContentAssets")
+ cover ContentAsset? @relation("ContentCover",fields:[id,coverId],references:[entryId,id],onDelete:Restrict,onUpdate:Restrict)
+ references ContentReference[]
+ @@index([kind,state,sortOrder,id])
+ @@map("content_entries")
+}
+model ContentReference {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ entryId String @map("entry_id") @db.Uuid
+ productId String? @map("product_id") @db.Uuid
+ categoryId String? @map("category_id") @db.Uuid
+ sortOrder Int @map("sort_order")
+ entry ContentEntry @relation(fields:[entryId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ product Product? @relation(fields:[productId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ category Category? @relation(fields:[categoryId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@unique([entryId,sortOrder])
+ @@index([productId])
+ @@index([categoryId])
+ @@map("content_references")
+}
+model ContentAsset {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ entryId String @map("entry_id") @db.Uuid
+ actorId String @map("actor_id") @db.Uuid
+ objectKey String @unique @map("object_key")
+ idempotencyKey String @unique @map("idempotency_key") @db.Uuid
+ fingerprint String
+ storedHash String @map("stored_hash")
+ byteSize Int @map("byte_size")
+ width Int
+ height Int
+ state String @default("pending")
+ readyAt DateTime? @map("ready_at") @db.Timestamptz(6)
+ attemptId String? @map("attempt_id") @db.Uuid
+ attemptUntil DateTime? @map("attempt_until") @db.Timestamptz(6)
+ deleteAfter DateTime? @map("delete_after") @db.Timestamptz(6)
+ reconcileAfter DateTime @default(dbgenerated("'epoch'::timestamptz")) @map("reconcile_after") @db.Timestamptz(6)
+ claimId String? @map("claim_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+ entry ContentEntry @relation("OwnedContentAssets",fields:[entryId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ covers ContentEntry[] @relation("ContentCover")
+ actor AdminUser @relation(fields:[actorId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@unique([entryId,id])
+ @@index([reconcileAfter,id])
+ @@map("content_assets")
+}
+
+model BusinessSettings {
+ id Boolean @id @default(true)
+ version BigInt @default(1)
+ currency String @default("BDT") @db.Char(3)
+ freeShippingThresholdMinor BigInt @default(500000) @map("free_shipping_threshold_minor")
+ lowStockThreshold Int? @map("low_stock_threshold")
+ consentVisible Boolean @default(false) @map("consent_visible")
+ consentNotice String @default("") @map("consent_notice")
+ consentVersion Int @default(0) @map("consent_version")
+ reviewsEnabled Boolean @default(false) @map("reviews_enabled")
+ exchangeDays Int @default(3) @map("exchange_days")
+ exchangeAnchor String @default("unresolved") @map("exchange_anchor")
+ updatedBy String? @map("updated_by") @db.Uuid
+ updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+ actor AdminUser? @relation(fields:[updatedBy],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@map("business_settings")
+}
+model Offer {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ name String
+ couponCode String? @unique @map("coupon_code")
+ kind String
+ value BigInt
+ startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+ endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+ active Boolean @default(false)
+ version BigInt @default(1)
+ updatedBy String @map("updated_by") @db.Uuid
+ updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+ actor AdminUser @relation(fields:[updatedBy],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@index([id,active])
+ @@map("offers")
+}
+model AuditLog {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ actorId String @map("actor_id") @db.Uuid
+ action String
+ entityId String @map("entity_id")
+ summary Json
+ createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+ actor AdminUser @relation(fields:[actorId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@index([entityId,createdAt(sort:Desc),id])
+ @@map("audit_logs")
 }
 
 // Administrative foundation only. Customer authentication/claiming is not enabled.

@@ -17,6 +17,8 @@ const AREAS = [
     features: [{ label: "Customer support", permission: "orders:read" }] },
   { id: "marketing", label: "Marketing", description: "Shape the brand experience and future campaigns.",
     features: [{ label: "Offers and campaigns", permission: "marketing:manage" }, { label: "Content management", permission: "content:manage" }] },
+  { id: "content", label: "Content", description: "Homepage, pages and size guides.", features: [{ label: "Content management", permission: "content:manage" }] },
+  { id: "settings", label: "Business settings", description: "Shipping, consent and policy configuration.", features: [{ label: "Business settings", permission: "settings:manage" }] },
   { id: "administration", label: "Administration", description: "Manage business settings, staff access, and accountability.",
     features: [{ label: "Business settings", permission: "settings:manage" }, { label: "Administrator management", permission: "admins:manage" }, { label: "Activity auditing", permission: "audit:read" }] },
 ] satisfies { id: string; label: string; description: string; features: { label: string; permission: AdminPermission }[] }[];
@@ -24,7 +26,7 @@ const AREAS = [
 // Policy projection only. The caller must use a server-authorized principal.
 export function dashboardAreas(role: string) {
   return AREAS.map(area => ({ id: area.id, label: area.label, description: area.description,
-    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : area.id === "categories" ? "/admin/categories" : area.id === "orders" ? "/admin/orders" : area.id === "customers" ? "/admin/customers" : null,
+    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : area.id === "categories" ? "/admin/categories" : area.id === "orders" ? "/admin/orders" : area.id === "customers" ? "/admin/customers" : area.id === "marketing" ? "/admin/marketing" : area.id === "settings" ? "/admin/settings" : area.id === "content" ? "/admin/content" : null,
     features: area.features.filter(feature => hasAdminPermission(role, feature.permission)).map(feature => feature.label),
   })).filter(area => area.features.length > 0);
 }

@@ -1,0 +1,7 @@
+.workspace { min-width: 0; overflow-wrap: anywhere; }
+.workspace section, .workspace form, .workspace fieldset { min-width: 0; }
+.workspace label { display: grid; gap: 6px; font-size: 14px; }
+.workspace input, .workspace select, .workspace textarea { display: block; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #b7bcae; border-radius: 4px; color: #253229; background: #fff; font: inherit; }
+.workspace textarea { min-height: 100px; }
+.workspace nav { display: flex; gap: 18px; flex-wrap: wrap; }
+.workspace li { margin-bottom: 12px; }

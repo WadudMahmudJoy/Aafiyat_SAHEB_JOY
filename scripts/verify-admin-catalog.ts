@@ -16,7 +16,7 @@ async function verify(){
  assert.equal(url.hostname,'127.0.0.1');assert.notEqual(url.port,'55432');assert.equal(url.pathname,`/receive_verify_${run.replaceAll('-','')}`);
  const identity=await prisma.$queryRaw<{db:string;version:string}[]>`SELECT current_database() db,current_setting('server_version_num') version`;
  assert.equal(identity[0].version,'180006');assert.equal(identity[0].db,url.pathname.slice(1));
- assert.equal(await prisma.$queryRaw<{n:bigint}[]>`SELECT count(*) n FROM _prisma_migrations`.then(r=>Number(r[0].n)),7);
+ assert.equal(await prisma.$queryRaw<{n:bigint}[]>`SELECT count(*) n FROM _prisma_migrations`.then(r=>Number(r[0].n)),process.env.CMS_NINE_MIGRATIONS==="1"?9:7);
  const snapshot=async()=>({baseline:await prisma.$transaction(async tx=>{
   const tables=await tx.$queryRaw<{name:string}[]>`SELECT tablename AS name FROM pg_tables WHERE schemaname='public' ORDER BY tablename`;
   const rows=[];

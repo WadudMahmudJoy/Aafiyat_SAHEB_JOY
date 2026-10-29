@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { publicStockStatus } from "@/lib/business-rules";
 
 export type PublicCategory = { id: string; name: string; slug: string };
 export type PublicProductSummary = {
@@ -56,15 +57,9 @@ function normalizedSlug(value: string): string {
 
 export function getPublicStockStatus(
   balance: { onHand: number; reserved: number; lowStockThreshold: number | null } | null,
+  defaultThreshold: number | null = null,
 ): PublicStockStatus {
-  if (!balance) return "Out of Stock";
-  const available = balance.onHand - balance.reserved;
-  if (available <= 0) return "Out of Stock";
-  // Business-settings integration is pending. Null never invents a global threshold.
-  if (balance.lowStockThreshold !== null && available <= balance.lowStockThreshold) {
-    return "Low Stock";
-  }
-  return "In Stock";
+  return publicStockStatus(balance,defaultThreshold);
 }
 
 export async function getPublicCategories(): Promise<PublicCategory[]> {
@@ -143,6 +138,8 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
     },
   });
   if (!product) return null;
+  const [settingsSchema]=await prisma.$queryRaw<{available:boolean}[]>`SELECT to_regclass('public.business_settings') IS NOT NULL AS available`;
+  const defaultThreshold=settingsSchema.available?(await prisma.$queryRaw<{value:number|null}[]>`SELECT low_stock_threshold AS value FROM business_settings WHERE id=true`)[0]?.value??null:null;
 
   return {
     id: product.id,
@@ -162,7 +159,7 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
       colorLabel: variant.colorLabel,
       priceMinor: variant.priceMinor.toString(),
       currency: variant.currency,
-      stockStatus: getPublicStockStatus(variant.inventoryBalance),
+      stockStatus: getPublicStockStatus(variant.inventoryBalance,defaultThreshold),
     })),
   };
 }

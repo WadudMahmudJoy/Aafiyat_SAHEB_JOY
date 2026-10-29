@@ -7,3 +7,7 @@ Each invocation claims at most 100 due assets and defers their next attempt by o
 Each claimed batch has a unique database claim ID. The worker checks that identity and its unexpired deadline before retirement and before the completion update. A stale request may still issue a storage DELETE, but cannot complete over a newer claim; retired keys remain eligible for later idempotent sweeps. A batch that runs beyond the deadline can report failures and must be retried.
 
 The worker logs aggregate failures only. It requires the media migration and storage configuration. Deploy neither the worker nor the migration without the appropriate environment review.
+
+## Content-owned media
+
+Run `node --conditions=react-server --import tsx scripts/reconcile-content.ts` separately after the CMS migration is deployed and storage configured. It uses content-owned keys, durable upload attempts, UUID/deadline-fenced claims, batches of at most 100 and indefinitely retryable tombstones. The same eventual-cleanup assumptions above apply. This command does not schedule itself; no CMS reconciliation schedule is deployed. Product-owned media continues using the original worker.

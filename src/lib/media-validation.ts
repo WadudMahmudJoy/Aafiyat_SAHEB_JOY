@@ -9,7 +9,8 @@ export function revision(value:unknown){if(!validDraftVersion(value))reject("CON
 export function normalized(value:unknown,max:number,required=false){if(typeof value!=="string"||value.length>2048||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))reject();const text=value.normalize("NFC").replace(/\s+/g," ").trim();if(text.length>max||required&&!text)reject();return text;}
 export const digest=(bytes:Buffer|string)=>createHash("sha256").update(bytes).digest("hex");
 export function objectKey(productId:string,assetId:string){return `products/${identifier(productId)}/${identifier(assetId)}.webp`;}
-export function validObjectKey(key:string){if(!/^products\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(key))reject();const [,p,a]=key.split("/");return key===objectKey(p,a.slice(0,-5));}
+export function contentObjectKey(entryId:string,assetId:string){return `content/${identifier(entryId)}/${identifier(assetId)}.webp`;}
+export function validObjectKey(key:string){if(!/^(products|content)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(key))reject();const [scope,p,a]=key.split("/");return key===(scope==="products"?objectKey(p,a.slice(0,-5)):contentObjectKey(p,a.slice(0,-5)));}
 export async function decodeImage(file:unknown){
  if(!(file instanceof File)||file.size<12||file.size>8*1024*1024)reject("IMAGE","Choose a PNG, JPEG or WebP image up to 8 MiB.");
  const raw=Buffer.from(await file.arrayBuffer());let mime="";
