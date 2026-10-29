@@ -9,6 +9,8 @@ const AREAS = [
     features: [{ label: "Product catalog", permission: "catalog:read" }, { label: "Product management", permission: "catalog:write" }] },
   { id: "inventory", label: "Inventory", description: "Receive stock, reconcile physical counts and review the movement ledger.",
     features: [{ label: "Stock receiving", permission: "inventory:manage" }, { label: "Counted corrections", permission: "inventory:manage" }, { label: "Stock movement history", permission: "inventory:manage" }] },
+  { id: "categories", label: "Categories", description: "Manage category metadata, ordering and public visibility.",
+    features: [{ label: "Category administration", permission: "catalog:read" }] },
   { id: "orders", label: "Orders", description: "Keep customer orders moving with clarity and care.",
     features: [{ label: "Order history", permission: "orders:read" }, { label: "Order management", permission: "orders:manage" }] },
   { id: "customers", label: "Customers", description: "Review customer profiles and staff-only associated order history.",
@@ -22,7 +24,7 @@ const AREAS = [
 // Policy projection only. The caller must use a server-authorized principal.
 export function dashboardAreas(role: string) {
   return AREAS.map(area => ({ id: area.id, label: area.label, description: area.description,
-    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : area.id === "orders" ? "/admin/orders" : area.id === "customers" ? "/admin/customers" : null,
+    href: area.id === "products" ? "/admin/products" : area.id === "inventory" ? "/admin/inventory" : area.id === "categories" ? "/admin/categories" : area.id === "orders" ? "/admin/orders" : area.id === "customers" ? "/admin/customers" : null,
     features: area.features.filter(feature => hasAdminPermission(role, feature.permission)).map(feature => feature.label),
   })).filter(area => area.features.length > 0);
 }

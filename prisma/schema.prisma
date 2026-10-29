@@ -37,6 +37,9 @@ model Product {
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   category       Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mediaAssets MediaAsset[]
+  gallery ProductMedia[]
+  lifecycleEvents ProductLifecycleEvent[]
   variants       ProductVariant[]
 
   @@index([categoryId, lifecycle, createdAt, id])
@@ -60,6 +63,7 @@ model ProductVariant {
   product          Product           @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   inventoryBalance InventoryBalance?
   stockMovements   StockMovement[]
+  media ProductMedia[]
   orderItems       OrderItem[]
 
   @@unique([productId, sizeCode, colorCode])
@@ -219,6 +223,8 @@ model AdminUser {
   role       AdminRole @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   stockMovements StockMovement[]
   acknowledgedOrders Order[]
+  mediaAssets MediaAsset[]
+  productEvents ProductLifecycleEvent[]
   orderEvents OrderEvent[]
 
   @@index([roleId])
@@ -325,4 +331,64 @@ model OrderEvent {
   @@index([orderId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([actorAdminId])
   @@map("order_events")
+}
+
+model MediaAsset {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ actorAdminId String @map("actor_admin_id") @db.Uuid
+ objectKey String @unique @map("object_key")
+ mimeType String @default("image/webp") @map("mime_type")
+ byteSize Int @map("byte_size")
+ width Int
+ height Int
+ readyAt DateTime? @map("ready_at") @db.Timestamptz(6)
+ uploadAttemptId String? @map("upload_attempt_id") @db.Uuid
+ uploadAttemptExpiresAt DateTime? @map("upload_attempt_expires_at") @db.Timestamptz(6)
+ reconcileAfter DateTime @default(dbgenerated("'epoch'::timestamptz")) @map("reconcile_after") @db.Timestamptz(6)
+ reconcileClaimId String? @map("reconcile_claim_id") @db.Uuid
+ storedHash String @map("stored_hash") @db.VarChar(64)
+ requestFingerprint String @map("request_fingerprint") @db.VarChar(64)
+ idempotencyKey String @unique @map("idempotency_key") @db.Uuid
+ state String @default("pending")
+ deleteAfter DateTime? @map("delete_after") @db.Timestamptz(6)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+ product Product @relation(fields:[productId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ actor AdminUser @relation(fields:[actorAdminId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ gallery ProductMedia[]
+ @@unique([productId,id])
+ @@index([actorAdminId])
+ @@index([state,deleteAfter,id])
+ @@index([reconcileAfter,id])
+ @@map("media_assets")
+}
+model ProductMedia {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ variantId String? @map("variant_id") @db.Uuid
+ assetId String @unique @map("asset_id") @db.Uuid
+ altText String @map("alt_text")
+ sortOrder Int @map("sort_order")
+ isCover Boolean @default(false) @map("is_cover")
+ product Product @relation(fields:[productId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ variant ProductVariant? @relation(fields:[productId,variantId],references:[productId,id],onDelete:Restrict,onUpdate:Restrict)
+ asset MediaAsset @relation(fields:[productId,assetId],references:[productId,id],onDelete:Restrict,onUpdate:Restrict)
+ @@unique([productId,sortOrder])
+ @@index([variantId])
+ @@map("product_media")
+}
+model ProductLifecycleEvent {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ actorAdminId String @map("actor_admin_id") @db.Uuid
+ fromState String @map("from_state")
+ toState String @map("to_state")
+ revision String @db.VarChar(27)
+ createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+ product Product @relation(fields:[productId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ actor AdminUser @relation(fields:[actorAdminId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@unique([productId,revision])
+ @@index([productId,createdAt(sort:Desc),id(sort:Desc)])
+ @@index([actorAdminId])
+ @@map("product_lifecycle_events")
 }

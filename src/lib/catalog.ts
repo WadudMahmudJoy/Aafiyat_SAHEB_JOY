@@ -8,6 +8,7 @@ export type PublicProductSummary = {
   name: string;
   slug: string;
   category: PublicCategory;
+  coverImage?: { url: string; altText: string };
 };
 export type PublicStockStatus = "In Stock" | "Low Stock" | "Out of Stock";
 export type PublicVariant = {
@@ -26,6 +27,7 @@ export type PublicProductDetail = PublicProductSummary & {
   seoTitle: string | null;
   seoDescription: string | null;
   variants: PublicVariant[];
+  images?: { url: string; altText: string; variantId: string | null; isCover: boolean }[];
 };
 
 const categorySelect = { id: true, name: true, slug: true } satisfies Prisma.CategorySelect;
@@ -39,6 +41,8 @@ const publicProductWhere = {
   lifecycle: "active",
   archivedAt: null,
   category: { active: true },
+  gallery: { some: { asset: { state: "ready" } } },
+  variants: { some: { active: true, archivedAt: null, currency: "BDT", priceMinor: { gt: BigInt(0) } } },
 } satisfies Prisma.ProductWhereInput;
 
 function normalizedSlug(value: string): string {
@@ -86,6 +90,8 @@ export async function getPublicProducts(
     throw new TypeError("Invalid catalog cursor.");
   }
 
+  const [schema] = await prisma.$queryRaw<{ available: boolean }[]>`SELECT to_regclass('public.media_assets') IS NOT NULL AS available`;
+  if (!schema.available) return { items: [], nextCursor: null };
   const rows = await prisma.product.findMany({
     where: {
       ...publicProductWhere,
@@ -100,7 +106,9 @@ export async function getPublicProducts(
     take: limit + 1,
     select: summarySelect,
   });
-  const items = rows.slice(0, limit);
+  const visible = rows.slice(0, limit);
+  const covers = await prisma.productMedia.findMany({ where: { productId: { in: visible.map(p => p.id) }, isCover: true, asset: { state: "ready" } }, select: { productId: true, assetId: true, altText: true } });
+  const items = visible.map(p => { const cover=covers.find(m=>m.productId===p.id); return { ...p, ...(cover ? { coverImage: { url: `/api/media/${cover.assetId}`, altText: cover.altText } } : {}) }; });
   return {
     items,
     nextCursor: rows.length > limit ? items[items.length - 1].id : null,
@@ -108,6 +116,8 @@ export async function getPublicProducts(
 }
 
 export async function getPublicProductBySlug(slug: string): Promise<PublicProductDetail | null> {
+  const [schema] = await prisma.$queryRaw<{ available: boolean }[]>`SELECT to_regclass('public.media_assets') IS NOT NULL AS available`;
+  if (!schema.available) return null;
   const product = await prisma.product.findFirst({
     where: { ...publicProductWhere, slug: normalizedSlug(slug) },
     select: {
@@ -116,7 +126,7 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
       seoTitle: true,
       seoDescription: true,
       variants: {
-        where: { active: true, archivedAt: null },
+        where: { active: true, archivedAt: null, currency: "BDT", priceMinor: { gt: BigInt(0) } },
         orderBy: [{ sizeCode: "asc" }, { colorCode: "asc" }, { id: "asc" }],
         select: {
           id: true,
@@ -142,6 +152,7 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
     description: product.description,
     seoTitle: product.seoTitle,
     seoDescription: product.seoDescription,
+    images: (await prisma.productMedia.findMany({ where: { productId: product.id, asset: { state: "ready" } }, orderBy: { sortOrder: "asc" }, select: { assetId: true, altText: true, variantId: true, isCover: true } })).map(m => ({ url: `/api/media/${m.assetId}`, altText: m.altText, variantId: m.variantId, isCover: m.isCover })),
     variants: product.variants.map((variant) => ({
       id: variant.id,
       sku: variant.sku,

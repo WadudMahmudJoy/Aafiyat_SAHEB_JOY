@@ -13,7 +13,7 @@ function compile(file:string,modules:Record<string,unknown>={}){
  return compiledModule.exports;
 }
 function MockLink({prefetch, ...props}: React.AnchorHTMLAttributes<HTMLAnchorElement> & {prefetch?:boolean}) {void prefetch;return React.createElement('a',props);}
-const view=compile('src/app/admin/products/catalogue-view.tsx',{'@/lib/admin-catalog-format':{catalogueHref,formatCataloguePrice},'next/link':{__esModule:true,default:MockLink}});
+const view=compile('src/app/admin/products/catalogue-view.tsx',{'./product-cover':compile('src/app/admin/products/product-cover.tsx'),'@/lib/admin-catalog-format':{catalogueHref,formatCataloguePrice},'next/link':{__esModule:true,default:MockLink}});
 const shell=compile('src/app/admin/dashboard-view.tsx');
 const id='009a0000-0000-4000-8000-000000000001';
 const category={id,name:'TEST T-Shirt',slug:'test-t-shirts',active:true};

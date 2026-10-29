@@ -7,18 +7,29 @@ import { getAdminProducts, getAdminProduct } from '../src/lib/admin-catalog';
 import { getPublicProducts, getPublicProductBySlug } from '../src/lib/catalog';
 import { formatCataloguePrice, catalogueHref } from '../src/lib/admin-catalog-format';
 import { AdminAuthorizationError } from '../src/lib/admin-authorization';
-import { prepareRehearsal, sameSnapshot } from '../src/lib/local-owner-rehearsal';
+import { sameSnapshot } from '../src/lib/local-owner-rehearsal';
 
 let passed=0;let stage='local preflight';
 async function test(name:string,run:()=>unknown|Promise<unknown>){stage=name;await run();passed++;console.log(`PASS: ${name}`);}
 async function verify(){
- const baseline=await prepareRehearsal();
+ const url=new URL(process.env.DATABASE_URL!);const run=process.env.INVENTORY_TEST_RUN!;
+ assert.equal(url.hostname,'127.0.0.1');assert.notEqual(url.port,'55432');assert.equal(url.pathname,`/receive_verify_${run.replaceAll('-','')}`);
+ const identity=await prisma.$queryRaw<{db:string;version:string}[]>`SELECT current_database() db,current_setting('server_version_num') version`;
+ assert.equal(identity[0].version,'180006');assert.equal(identity[0].db,url.pathname.slice(1));
+ assert.equal(await prisma.$queryRaw<{n:bigint}[]>`SELECT count(*) n FROM _prisma_migrations`.then(r=>Number(r[0].n)),7);
+ const snapshot=async()=>({baseline:await prisma.$transaction(async tx=>{
+  const tables=await tx.$queryRaw<{name:string}[]>`SELECT tablename AS name FROM pg_tables WHERE schemaname='public' ORDER BY tablename`;
+  const rows=[];
+  for(const {name} of tables){const quoted='"'+name.replaceAll('"','""')+'"';const [row]=await tx.$queryRawUnsafe<{rows:number;fingerprint:string}[]>(`SELECT count(*)::int AS rows,md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text)::text,'[]')) fingerprint FROM ${quoted} t`);rows.push({name,...row});}
+  return rows;
+ })});
+ const baseline=await snapshot();
  assert(baseline.baseline.filter(r=>['products','product_variants','inventory_balances'].includes(r.name)).every(r=>r.rows===0));
  const categories=await prisma.category.findMany({orderBy:{id:'asc'}});
  const prefix=randomUUID().slice(0,8);const id=(n:number)=>`${prefix}-009a-4000-8000-${String(n).padStart(12,'0')}`;
  const marker=`test-009a-${prefix}`;const now=new Date();const session={session:{id:'009a-memory-session',userId:'009a-memory-user',token:randomUUID(),createdAt:now,expiresAt:new Date(Date.now()+600000)},user:{id:'009a-memory-user'}};
  let role='OWNER';let active=true;let proof=true;let revoked=false;let expired=false;let signedIn=true;let reads=0;
- const originals={auth:auth.api.getSession,admin:prisma.adminUser.findUnique,session:prisma.session.findUnique,user:prisma.user.findUniqueOrThrow,products:prisma.product.findMany,product:prisma.product.findUnique,publicDetail:prisma.product.findFirst,variants:prisma.productVariant.findMany,categories:prisma.category.findMany};
+ const originals={auth:auth.api.getSession,admin:prisma.adminUser.findUnique,session:prisma.session.findUnique,user:prisma.user.findUniqueOrThrow,products:prisma.product.findMany,product:prisma.product.findUnique,publicDetail:prisma.product.findFirst,variants:prisma.productVariant.findMany,categories:prisma.category.findMany,media:prisma.productMedia.findMany};
  const request=new Headers();const rollback=new Error('Intentional catalogue fixture rollback');
  try{
   Reflect.set(auth.api,'getSession',async()=>signedIn?session:null);
@@ -29,6 +40,11 @@ async function verify(){
   await prisma.$transaction(async tx=>{
    stage="transaction-only product fixtures";
    await tx.product.createMany({data:['active','draft','discontinued','archived'].map((lifecycle,i)=>({id:id(i+1),categoryId:categories[i<2?0:1].id,name:`TEST ${marker} ${i}`,slug:`${marker}-${i}`,description:'Transaction-only TEST product',lifecycle,archivedAt:lifecycle==='archived'?now:null,createdAt:now}))});
+   const actorUser=await tx.user.create({data:{id:id(800),name:'TEST catalogue actor',email:`${marker}@example.invalid`}});
+   const actor=await tx.adminUser.create({data:{id:id(801),userId:actorUser.id,roleId:(await tx.adminRole.findFirstOrThrow({where:{name:'OWNER'}})).id}});
+   const asset=await tx.mediaAsset.create({data:{id:id(802),productId:id(1),actorAdminId:actor.id,objectKey:`products/${id(1)}/${id(802)}.webp`,byteSize:1,width:1,height:1,storedHash:'a'.repeat(64),requestFingerprint:'b'.repeat(64),idempotencyKey:id(803),state:'ready',readyAt:now}});
+   await tx.productMedia.create({data:{productId:id(1),assetId:asset.id,altText:'TEST ready image',sortOrder:0,isCover:true}});
+   Reflect.set(prisma.productMedia,'findMany',async(args:Parameters<typeof tx.productMedia.findMany>[0])=>tx.productMedia.findMany(args));
    stage="transaction-only variant fixtures";
    await tx.productVariant.createMany({data:Array.from({length:25},(_,i)=>({id:id(100+i),productId:id(1),sku:`TEST-009A-${prefix.toUpperCase()}-${i}`,sizeCode:`test-${i}`,sizeLabel:`Test size ${i}`,colorCode:'forest',colorLabel:'Forest',priceMinor:i===1?BigInt('9223372036854775807'):BigInt(119900),currency:'BDT',active:i!==1&&i!==2,archivedAt:i===2?now:null}))});
    await tx.inventoryBalance.createMany({data:[{variantId:id(100),onHand:10,reserved:4,lowStockThreshold:null},{variantId:id(102),onHand:5,reserved:5,lowStockThreshold:2}]});
@@ -54,14 +70,15 @@ async function verify(){
    await test('inactive administrator denied',async()=>{active=false;await deny();active=true;});
    await test('expired and revoked sessions denied',async()=>{expired=true;await deny();expired=false;revoked=true;await deny();revoked=false;});
    await test('public catalogue remains active-only with safe stock DTOs',async()=>{const products=await getPublicProducts();assert.equal(products.items.length,1);assert.equal(await getPublicProductBySlug(`${marker}-1`),null);assert.equal(await getPublicProductBySlug(`${marker}-3`),null);const detail=await getPublicProductBySlug(`${marker}-0`);assert.equal(detail!.variants.length,23);assert(!JSON.stringify(detail).includes('onHand'));assert(!JSON.stringify(detail).includes('reserved'));});
+   await test('active products without ready media remain private',async()=>{for(const [i,state] of ['missing','pending','deleted'].entries()){const pid=id(900+i),aid=id(910+i);await tx.product.create({data:{id:pid,name:`TEST ${state}`,slug:`${marker}-${state}`,categoryId:categories[0].id,lifecycle:'active',description:'TEST'}});await tx.productVariant.create({data:{productId:pid,sku:`TEST-${marker}-${state}`.toUpperCase(),sizeCode:'m',sizeLabel:'M',colorCode:'gold',colorLabel:'Gold',priceMinor:BigInt(100)}});if(state!=='missing')await tx.mediaAsset.create({data:{id:aid,productId:pid,actorAdminId:actor.id,objectKey:`products/${pid}/${aid}.webp`,byteSize:1,width:1,height:1,storedHash:'a'.repeat(64),requestFingerprint:'b'.repeat(64),idempotencyKey:id(920+i),state,deleteAfter:state==='deleted'?now:null}});assert.equal(await getPublicProductBySlug(`${marker}-${state}`),null);}assert.equal((await getPublicProducts()).items.length,1);assert.equal(await getPublicProductBySlug(`${marker}-2`),null);});
    await test('pagination links preserve filters and cannot redirect externally',()=>{const link=catalogueHref({search:'https://untrusted.invalid & <script>',category:categories[0].id},id(1));assert(link.startsWith('/admin/products?'));assert.equal(new URL(link,'http://localhost').searchParams.get('cursor'),id(1));});
    await test('database failures return generic catalogue error',async()=>{const original=prisma.product.findMany;try{Reflect.set(prisma.product,'findMany',async()=>{throw new Error('sensitive driver details');});const page=await getAdminProducts(request);assert(page.error);assert(!page.error!.includes('sensitive'));}finally{Reflect.set(prisma.product,'findMany',original);}});
    throw rollback;
   },{timeout:20000});
  }catch(error){if(error!==rollback)throw error;}
- finally{Reflect.set(auth.api,'getSession',originals.auth);Reflect.set(prisma.adminUser,'findUnique',originals.admin);Reflect.set(prisma.session,'findUnique',originals.session);Reflect.set(prisma.user,'findUniqueOrThrow',originals.user);Reflect.set(prisma.product,'findMany',originals.products);Reflect.set(prisma.product,'findUnique',originals.product);Reflect.set(prisma.product,'findFirst',originals.publicDetail);Reflect.set(prisma.productVariant,'findMany',originals.variants);Reflect.set(prisma.category,'findMany',originals.categories);
-  const previous=stage;await test('all twelve fingerprints restored after transaction rollback',async()=>assert(sameSnapshot(baseline.baseline,(await prepareRehearsal()).baseline)));stage=previous;
+ finally{Reflect.set(auth.api,'getSession',originals.auth);Reflect.set(prisma.adminUser,'findUnique',originals.admin);Reflect.set(prisma.session,'findUnique',originals.session);Reflect.set(prisma.user,'findUniqueOrThrow',originals.user);Reflect.set(prisma.product,'findMany',originals.products);Reflect.set(prisma.product,'findUnique',originals.product);Reflect.set(prisma.product,'findFirst',originals.publicDetail);Reflect.set(prisma.productVariant,'findMany',originals.variants);Reflect.set(prisma.category,'findMany',originals.categories);Reflect.set(prisma.productMedia,'findMany',originals.media);
+  const previous=stage;await test('all public-table fingerprints restored after transaction rollback',async()=>assert(sameSnapshot(baseline.baseline,(await snapshot()).baseline)));stage=previous;
  }
- console.log(`${passed} admin catalogue checks passed; all product fixtures rolled back; no auth identities created.`);
+ console.log(`${passed} admin catalogue checks passed; all fixtures rolled back; no auth identities persist.`);
 }
 verify().catch(()=>{console.error(`Admin catalogue check failed at ${stage}; details withheld.`);process.exitCode=1;}).finally(async()=>{await prisma.$disconnect();});

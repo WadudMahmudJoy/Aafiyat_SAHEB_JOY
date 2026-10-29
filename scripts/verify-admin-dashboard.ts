@@ -19,7 +19,7 @@ async function verify() {
   Reflect.set(prisma.adminUser, 'findUnique', async () => ({ id: 'mock-membership', userId: session.user.id, active, disabledAt: null, role: { name: role } }));
   Reflect.set(prisma.session, 'findUnique', async () => revoked ? null : ({ ...session.session, expiresAt: expired ? new Date(0) : session.session.expiresAt, mfaVerifiedAt: proof ? now : null, user: { twoFactorEnabled: true, twofactors: [{ verified: true }] } }));
   Reflect.set(prisma.user, 'findUniqueOrThrow', async (args: unknown) => { identityReads++; assert.deepEqual(args,{ where:{id:session.user.id},select:{name:true,email:true} }); return {name:'TEST Operator',email:'dashboard@example.invalid'}; });
-  for (const [name, expected] of [['OWNER',['products','inventory','orders','customers','marketing','administration']],['PRODUCT_MANAGER',['products','inventory']],['ORDER_MANAGER',['orders','customers']],['MARKETING_MANAGER',['products','marketing']]] as const) {
+  for (const [name, expected] of [['OWNER',['products','inventory','categories','orders','customers','marketing','administration']],['PRODUCT_MANAGER',['products','inventory','categories']],['ORDER_MANAGER',['orders','customers']],['MARKETING_MANAGER',['products','categories','marketing']]] as const) {
    await test(`${name} receives only policy-permitted areas`,async()=> { role=name; const data=await getAdminDashboard(new Headers()); assert.deepEqual(data.areas.map(a=>a.id),expected); assert.deepEqual(Object.keys(data.identity).sort(),['email','name']); });
   }
   await test('marketing catalog read does not imply inventory or product-write controls',()=>assert.deepEqual(dashboardAreas('MARKETING_MANAGER')[0].features,['Product catalog']));

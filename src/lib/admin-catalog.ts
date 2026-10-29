@@ -39,6 +39,19 @@ function variantDto(row: VariantRow, inventory: boolean) {
   };
 }
 
+// Both callers authorize catalog reads before querying private image metadata.
+// Keep existing catalogue pages available while the additive media schema awaits deployment.
+async function covers(ids: string[]) {
+  const result = new Map<string, { coverImage?: { url: string; altText: string } }>();
+  if (!ids.length) return result;
+  const [schema] = await prisma.$queryRaw<{ available: boolean }[]>`SELECT to_regclass('public.media_assets') IS NOT NULL AS available`;
+  if (!schema.available) return result;
+  const rows = await prisma.productMedia.findMany({ where: { productId: { in: ids }, isCover: true, asset: { state: "ready" } },
+    select: { productId: true, assetId: true, altText: true } });
+  for (const row of rows) result.set(row.productId, { coverImage: { url: `/api/admin/media/${row.assetId}`, altText: row.altText } });
+  return result;
+}
+
 export async function getAdminProducts(requestHeaders: Headers, input: Input = {}) {
   // One uncached authorization/identity read; no caller-provided roles or stock flags.
   const dashboard = await getAdminDashboard(requestHeaders, "catalog:read");
@@ -57,7 +70,8 @@ export async function getAdminProducts(requestHeaders: Headers, input: Input = {
       }),
       prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }], take: 101, select: categorySelect }),
     ]);
-    const items = rows.slice(0, limit).map(row => ({ id: row.id, name: row.name, slug: row.slug, lifecycle: row.lifecycle,
+    const images = await covers(rows.slice(0, limit).map(row => row.id));
+    const items = rows.slice(0, limit).map(row => ({ ...images.get(row.id), id: row.id, name: row.name, slug: row.slug, lifecycle: row.lifecycle,
       category: row.category, variantCount: row._count.variants, exampleVariant: row.variants[0] ? variantDto(row.variants[0], canViewInventory) : null }));
     return { dashboard, canViewInventory, canWriteProducts, items, filters, categories: categories.slice(0, 100), categoriesTruncated: categories.length > 100,
       nextCursor: rows.length > limit ? items[items.length - 1].id : null, error: null };
@@ -84,7 +98,8 @@ export async function getAdminProduct(requestHeaders: Headers, productId: string
       orderBy: { id: "asc" }, take: 21, select: variantSelect(canViewInventory) });
     const variants = rows.slice(0, 20).map(row => variantDto(row, canViewInventory));
     const { _count, ...information } = product;
-    return { dashboard, canViewInventory, canWriteProducts, product: { ...information, archivedAt: product.archivedAt?.toISOString() ?? null,
+    const images = await covers([id]);
+    return { dashboard, canViewInventory, canWriteProducts, product: { ...images.get(id), ...information, archivedAt: product.archivedAt?.toISOString() ?? null,
       createdAt: product.createdAt.toISOString(), updatedAt: product.updatedAt.toISOString(), variantCount: _count.variants },
       variants, nextCursor: rows.length > 20 ? variants[variants.length - 1].id : null, error: null };
   } catch (error) {
