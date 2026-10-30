@@ -125,6 +125,7 @@ model User {
   accounts         Account[]
   twofactors       TwoFactor[]
   adminUser        AdminUser?
+  consumedInvitations AdminInvitation[]
 
   @@unique([email])
   @@map("auth_users")
@@ -214,6 +215,8 @@ model AdminRole {
 }
 
 model AdminUser {
+  invitations AdminInvitation[] @relation("InvitationIssuer")
+  revokedInvitations AdminInvitation[] @relation("InvitationRevoker")
   governanceVersion BigInt @default(1) @map("governance_version")
   authorizationNotBefore DateTime @default(dbgenerated("'epoch'::timestamptz")) @map("authorization_not_before") @db.Timestamptz(3)
  contentEntries ContentEntry[]
@@ -239,6 +242,42 @@ model AdminUser {
   @@index([active, roleId, id])
   @@index([roleId])
   @@map("admin_users")
+}
+
+// Lifecycle/active-email uniqueness and transition guards are enforced in SQL.
+model AdminInvitation {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ email String
+ role AdminRoleName
+ tokenHash String @unique @map("token_hash") @db.VarChar(64)
+ deliveryCiphertext String? @map("delivery_ciphertext")
+ state String @default("pending")
+ deliveryState String @default("unconfigured") @map("delivery_state")
+ invitedBy String @map("invited_by") @db.Uuid
+ createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+ updatedAt DateTime @default(dbgenerated("clock_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+ expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+ version BigInt @default(1)
+ attempts Int @default(0)
+ nextAttemptAt DateTime @default(dbgenerated("clock_timestamp()")) @map("next_attempt_at") @db.Timestamptz(6)
+ leaseId String? @map("lease_id") @db.Uuid
+ leaseUntil DateTime? @map("lease_until") @db.Timestamptz(6)
+ lastError String? @map("last_error")
+ providerReceiptHash String? @map("provider_receipt_hash") @db.VarChar(64)
+ deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+ revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+ revokedBy String? @map("revoked_by") @db.Uuid
+ expiredAt DateTime? @map("expired_at") @db.Timestamptz(6)
+ consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+ consumedUserId String? @map("consumed_user_id")
+ issuer AdminUser @relation("InvitationIssuer",fields:[invitedBy],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ revoker AdminUser? @relation("InvitationRevoker",fields:[revokedBy],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ consumedUser User? @relation(fields:[consumedUserId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ @@index([state,expiresAt,id],map:"admin_invitations_state_expiry_id_idx")
+ @@index([invitedBy,createdAt(sort:Desc),id],map:"admin_invitations_inviter_created_idx")
+ @@index([revokedBy],map:"admin_invitations_revoked_by_idx")
+ @@index([consumedUserId],map:"admin_invitations_consumed_user_idx")
+ @@map("admin_invitations")
 }
 
 model ContentEntry {

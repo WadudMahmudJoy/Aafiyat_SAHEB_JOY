@@ -7,7 +7,7 @@ import { ADMIN_PERMISSIONS,hasAdminPermission } from "./admin-permissions";
 import { strictBusinessFields,plainText } from "./business-rules";
 import { identifier } from "./media-validation";
 export const STAFF_ROLES=["PRODUCT_MANAGER","ORDER_MANAGER","MARKETING_MANAGER"] as const;
-export const AUDIT_ACTIONS=["settings.update","offer.create","offer.update","content.save","content.upload","content.remove-image","admin.role","admin.activate","admin.deactivate","admin.revoke"] as const;
+export const AUDIT_ACTIONS=["settings.update","offer.create","offer.update","content.save","content.upload","content.remove-image","admin.role","admin.activate","admin.deactivate","admin.revoke","invitation.create","invitation.revoke","invitation.expire","invitation.delivery"] as const;
 const permissions=["OWNER",...STAFF_ROLES].map(role=>({role,permissions:ADMIN_PERMISSIONS.filter(p=>hasAdminPermission(role,p))}));
 class Conflict extends Error{}
 class Policy extends Error{}
@@ -50,7 +50,7 @@ export async function readAudit(headers:Headers,query:{action?:string;actor?:str
  let at:string|null=null,id:string|null=null;if(query.cursor){if(query.cursor.length>240)throw new Policy();const cursor=JSON.parse(Buffer.from(query.cursor,"base64url").toString("utf8"));if(!Array.isArray(cursor)||cursor.length!==2)throw new Policy();at=instant(cursor[0]);id=identifier(cursor[1]);}
  const rows=await prisma.$queryRaw<{id:string;actor_id:string;actor_name:string;action:string;entity_id:string;at:string;summary:unknown}[]>`SELECT a.id,a.actor_id,u.name AS actor_name,a.action,a.entity_id,to_char(a.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at,a.summary FROM audit_logs a JOIN admin_users m ON m.id=a.actor_id JOIN auth_users u ON u.id=m.user_id WHERE (${action}='' OR a.action=${action}) AND (${actor}::uuid IS NULL OR a.actor_id=${actor}::uuid) AND (${entity}='' OR a.entity_id=${entity}) AND (${at}::timestamptz IS NULL OR (a.created_at,a.id)<(${at}::timestamptz,${id}::uuid)) ORDER BY a.created_at DESC,a.id DESC LIMIT 21`;
  // Do not render arbitrary historic JSON payloads: only known safe scalar categories.
- const safe=["version","noticeVersion","changed","kind","state","active","retainedTombstone","fromRole","toRole","revokedSessions"];
+ const safe=["version","noticeVersion","changed","kind","state","active","retainedTombstone","fromRole","toRole","revokedSessions","attempts"];
  const output=rows.slice(0,20).map(r=>({...r,summary:Object.fromEntries(Object.entries(r.summary as Record<string,unknown>).filter(([k,v])=>safe.includes(k)&&(typeof v==="boolean"||typeof v==="number"||typeof v==="string"&&/^[A-Za-z0-9_.-]{1,40}$/.test(v)||k==="changed"&&Array.isArray(v)&&v.every(x=>["shipping","lowStock","consent"].includes(x)))))}));
  const last=output.at(-1);return {dashboard,rows:output,nextCursor:rows.length>20&&last?Buffer.from(JSON.stringify([last.at,last.id])).toString("base64url"):null};
 }

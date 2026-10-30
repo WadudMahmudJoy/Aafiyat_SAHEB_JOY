@@ -4,3 +4,4 @@ prisma/migrations/20261029000000_add_product_media_lifecycle/migration.sql text 
 prisma/migrations/20261030000000_add_business_settings_offers/migration.sql text eol=lf
 prisma/migrations/20261030010000_add_content_cms/migration.sql text eol=lf
 prisma/migrations/20261030020000_add_admin_governance/migration.sql text eol=lf
+/prisma/migrations/20261030030000_add_admin_invitations/migration.sql -text
