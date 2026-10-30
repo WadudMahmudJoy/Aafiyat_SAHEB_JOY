@@ -83,8 +83,12 @@ let preserved;
 let beforeContainers;
 let admin;
 try {
-  assert.equal(command("git", ["branch", "--show-current"]), "main");
-  assert.equal(command("git", ["rev-parse", "HEAD"]), correctionMode ? "425183c849dc3d075e6697b941d8d240cb9b062e" : "aedb3a0ec962f33a0b1ee88d7284918ff6ba5ab0");
+  const branch = command("git", ["branch", "--show-current"]);
+  const head = command("git", ["rev-parse", "--verify", "HEAD^{commit}"]);
+  const originMain = command("git", ["rev-parse", "--verify", "refs/remotes/origin/main^{commit}"]);
+  report.gitBaseline = { branch, head, originMain };
+  assert.equal(branch, "main", "Governance verification requires main");
+  assert.equal(head, originMain, "Local HEAD must match refs/remotes/origin/main");
   const tracked = command("git", ["ls-files", "-z"]).split("\0").filter(Boolean);
   preserved = Object.fromEntries([...tracked, ...receiving].map(path => [path, sha(path)]));
   report.initialGitStatus = command("git", ["status", "--short"]);

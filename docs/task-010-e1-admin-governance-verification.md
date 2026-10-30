@@ -1,5 +1,7 @@
 # Task 010-E1 - Administrator Governance Verification
 
+Latest acceptance: **E1 fresh verification PASS** for Task 010-E1R on 2026-10-30, against committed E1 HEAD fc84c6bf86930be99cca508bf02d1ff1e443bf4b. Fresh browser acceptance and controller preservation both passed. The E1R section below supersedes earlier verification-run status for this maintenance repair; earlier evidence remains historical.
+
 Status: PASS for the implemented and tested existing-membership governance slice on 2026-10-30. The implementation phase performed no commit, push, migration to development, permanent provisioning or production deployment. E1G authorizes the reviewed checkpoint separately.
 
 ## Starting repository and database
@@ -118,3 +120,50 @@ Fresh read-only audit again confirmed exactly aafiyat_dev on 127.0.0.1:55432, si
 - `src/lib/session-mfa-proof.ts`
 
 Pre-checkpoint Git state: main at 425183c849dc3d075e6697b941d8d240cb9b062e, nine modified tracked paths and nine untracked files, empty index. E1G authorizes the reviewed commit and normal push after all gates pass; the resulting commit identity is reported separately. No E2 work started.
+
+## Task 010-E1R - Fresh acceptance after baseline repair
+
+Status: **E1 fresh verification PASS; ready for the small verification-maintenance checkpoint.** No commit or push was performed for E1R.
+
+### Baseline defect and exact controller repair
+
+The original E1 controller required the Task 010-D commit 425183c849dc3d075e6697b941d8d240cb9b062e, which was appropriate during the original uncommitted E1 implementation. E1 was subsequently committed as fc84c6bf86930be99cca508bf02d1ff1e443bf4b. The old assertion therefore rejected the committed implementation before any database baseline or disposable resource was created. A fresh invocation reproduced that failure (run 9c320c3a-7e7f-464e-a5a2-0c23b26360c2).
+
+Before editing, E1R confirmed a clean main worktree and independently resolved both HEAD and refs/remotes/origin/main to the required starting commit fc84c6bf86930be99cca508bf02d1ff1e443bf4b. The controller now resolves both references using git rev-parse --verify with the commit suffix, records branch/head/originMain in report.gitBaseline, requires branch main, and requires exact equality of those resolved commits. Missing references, detached HEAD, other branches and diverged commits fail closed before database testing. There is no environment switch or correctionMode bypass for these checks. The repair's exact starting SHA is confirmed by the preflight and both fresh evidence records rather than becoming another obsolete hardcoded assertion. These checks compare the local remote-tracking reference; no claim of a new remote fetch is made.
+
+Five isolated policy probes passed: matching main accepted and recorded, other branch denied, detached HEAD denied, differing origin denied, missing origin reference denied. They executed the actual controller baseline block with synthetic command results without changing Git refs. No governance assertion, migration, production source, fixture policy or test coverage was changed.
+
+### Fresh integration and browser evidence
+
+Integration command: node scripts/run-governance-verification.mjs. Run 5e090216-02c2-4c7d-9719-8df13479158b: all twelve governance integration groups PASS. Actual Better Auth password/TOTP, old-session revocation, pending-challenge rejection, fresh-login permission changes, concurrency, self/Owner protection, missing/stale MFA, origin denials, audit atomicity/append-only protections, failure rollback, migration recreation/rollback and existing-module probes passed. All ten migrations were applied only to a verified empty disposable PostgreSQL 18.6 tmpfs database.
+
+Browser command: GOVERNANCE_BROWSER=1 node scripts/run-governance-verification.mjs, using process-only TMP/TEMP overrides to a dedicated evidence directory outside Windows Temp. Run 383a5057-f4ce-49f8-96b2-2fb526d433fa: twelve integration groups plus actual authenticated browser acceptance PASS (thirteen harness groups total). The installed Chromium executable drove the existing isolated Next.js server and disposable authentication fixtures. No application code or authorization bypass was introduced.
+
+Fresh browser assertions passed for real Owner/staff password and TOTP login; Owner staff/audit access; PRODUCT_MANAGER and anonymous staff/audit denials; confirmation validation; a persisted PRODUCT_MANAGER-to-MARKETING_MANAGER change; rejection of the old privileged session; explicit stale-form conflict feedback; fresh marketing login with content access and inventory/audit denial; deactivation denial; reactivation without resurrecting old sessions; fresh login after reactivation; explicit session revocation; committed role/activation/deactivation/revocation audit entries; action/entity filters; and the directory empty state. The audit-filter probe waits for the resulting row before inspecting it, avoiding a navigation timing race in the browser driver. Assertions were retained.
+
+Responsive evidence: staff and audit each measured clientWidth=scrollWidth=375 at 375px, and clientWidth=scrollWidth=1440 at 1440px. Four full-page screenshots and the browser-finished assertion record are retained outside Git with the run evidence. No source files were edited while either successful controller was running.
+
+Browser acceptance: **PASS**. Browser controller preservation: **PASS**, independently confirmed by developmentUnchanged=true, preservedSourcesUnchanged=true and preexistingContainersPreserved=true. The disposable container was removed and tmpfs destroyed. The integration-only controller reports the same three preservation flags and successful cleanup.
+
+An earlier E1R browser attempt (b0a8b5c4-f32c-4244-ba07-40f9203f3ebf) could not complete: its Windows Temp run directory no longer existed when readiness/results were written, producing ENOENT. The responsible external removal was not established, and no browser PASS or complete preservation report is attributed to that attempt. Its owned database container was removed; Git showed only the intended controller edit afterward. Repeating with dedicated process-only temporary paths resolved the evidence-directory failure without changing or weakening the harness. The later successful controller and final full database comparison establish preservation for the completed acceptance run.
+
+### Quality gates, checksum and preservation
+
+PASS: Prisma validate; TypeScript --noEmit; ESLint with zero warnings; 23 authorization checks; 13 dashboard policy/access checks; nine dashboard presentation/accessibility checks; seven dashboard session/sign-out checks; eleven catalogue route/presentation checks; ten login form/transport/accessibility checks; Next.js 16.4.3 production build; git diff --check. These regressions used read-only development connections and created no identities. The real MFA/session lifecycle evidence comes from the disposable integration and browser runs; the development-writing onboarding lifecycle harness was not run.
+
+The build used process-only HTTPS authentication origin and default_transaction_read_only=on database options. The existing generated-file snapshot/restore approach preserved next-env.d.ts and tsconfig.json exactly. Final SHA-256 values: next-env.d.ts = 1862ac4bbbc5192d4bf562161df66ea547ed3e67173100656ab606ae9797db2b; tsconfig.json = c99dc92a460e0a0e91d0902cd2b5cc8fe639077e351e84149483f70a36746fc5. Neither file has a Git diff.
+
+Governance migration: prisma/migrations/20261030020000_add_admin_governance/migration.sql. SHA-256 remains 9b028814e86ba1b9327e27141780e3c4982f9f9fc7f007567a7f38ab80c507b7. No migration file changed.
+
+After browser acceptance, regressions and build, the final read-only comparison matched all eighteen development table fingerprints against the successful integration baseline. Development remains exactly 127.0.0.1:55432/aafiyat_dev with six applied migrations whose checksums match source, zero administrator memberships and zero authentication identities. Product Media, Settings/Offers, CMS and governance remain unapplied. Pre-existing containers remain present; no unrelated Docker resources were changed. Secure Owner/staff onboarding and pending-schema deployment retain the separate dependencies described above.
+
+### E1R changed-file manifest and final Git status
+
+The complete E1R change manifest contains exactly:
+
+- scripts/run-governance-verification.mjs - replace obsolete SHA assertion with resolved main/origin-main equality and recorded baseline evidence.
+- docs/task-010-e1-admin-governance-verification.md - fresh repair/acceptance report.
+
+Sensitive-artifact review of both diffs found no credentials, TOTP secrets, session tokens, raw authentication fixtures, screenshots, generated output or unrelated changes. Raw logs, screenshots and evidence remain outside Git; the successful harness removed its browser-ready credential file. The original eighteen-file E1 manifest above describes the existing committed implementation, not new E1R changes.
+
+Final Git state: main at fc84c6bf86930be99cca508bf02d1ff1e443bf4b, matching refs/remotes/origin/main; exactly the two manifest paths modified, empty index, no untracked source artifacts. No permanent accounts, development migration, commit, push or E2 implementation. Stopped after reporting.
