@@ -7,7 +7,7 @@ import { requireAdminPermission } from "./admin-authorization";
 import { STAFF_ROLES } from "./admin-governance";
 import { strictBusinessFields } from "./business-rules";
 import { identifier } from "./media-validation";
-import { normalizeInvitationEmail, createInvitationSecret, invitationVerifier, sealInvitationSecret } from "./invitation-secrets";
+import { normalizeInvitationEmail, createInvitationSecret, invitationVerifier, sealInvitationSecret, credentialEmailAccepted } from "./invitation-secrets";
 import { invitationDeliveryConfig } from "./invitation-delivery-config";
 
 export class InvitationPolicyError extends Error {
@@ -48,6 +48,7 @@ export async function changeInvitation(headers: Headers, form: FormData): Promis
     const fields = strictBusinessFields(form, operation === "create" ? ["operation","email","role"] : ["operation","id","version","confirm"]);
     if (!["create","revoke","expire"].includes(fields.operation)) throw new InvitationPolicyError();
     const email = operation === "create" ? normalizeInvitationEmail(fields.email) : null;
+    if (email && !credentialEmailAccepted(email)) throw new InvitationPolicyError("Use an email address supported by password sign-in.");
     if (operation === "create" && !STAFF_ROLES.includes(fields.role as typeof STAFF_ROLES[number])) throw new InvitationPolicyError("Choose an approved non-Owner role and a valid email.");
     const id = email ? randomUUID() : identifier(fields.id);
     const version = email ? null : expectedVersion(fields.version);

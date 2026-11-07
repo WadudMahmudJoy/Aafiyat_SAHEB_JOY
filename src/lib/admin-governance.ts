@@ -7,7 +7,7 @@ import { ADMIN_PERMISSIONS,hasAdminPermission } from "./admin-permissions";
 import { strictBusinessFields,plainText } from "./business-rules";
 import { identifier } from "./media-validation";
 export const STAFF_ROLES=["PRODUCT_MANAGER","ORDER_MANAGER","MARKETING_MANAGER"] as const;
-export const AUDIT_ACTIONS=["settings.update","offer.create","offer.update","content.save","content.upload","content.remove-image","admin.role","admin.activate","admin.deactivate","admin.revoke","invitation.create","invitation.revoke","invitation.expire","invitation.delivery"] as const;
+export const AUDIT_ACTIONS=["settings.update","offer.create","offer.update","content.save","content.upload","content.remove-image","admin.role","admin.activate","admin.deactivate","admin.revoke","invitation.create","invitation.revoke","invitation.expire","invitation.delivery","onboarding.start","onboarding.mail","onboarding.verify","onboarding.provision","onboarding.close"] as const;
 const permissions=["OWNER",...STAFF_ROLES].map(role=>({role,permissions:ADMIN_PERMISSIONS.filter(p=>hasAdminPermission(role,p))}));
 class Conflict extends Error{}
 class Policy extends Error{}

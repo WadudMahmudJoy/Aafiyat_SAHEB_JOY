@@ -126,6 +126,7 @@ model User {
   twofactors       TwoFactor[]
   adminUser        AdminUser?
   consumedInvitations AdminInvitation[]
+  staffOnboarding AdminOnboarding?
 
   @@unique([email])
   @@map("auth_users")
@@ -215,6 +216,7 @@ model AdminRole {
 }
 
 model AdminUser {
+  onboarding AdminOnboarding?
   invitations AdminInvitation[] @relation("InvitationIssuer")
   revokedInvitations AdminInvitation[] @relation("InvitationRevoker")
   governanceVersion BigInt @default(1) @map("governance_version")
@@ -240,12 +242,14 @@ model AdminUser {
   orderEvents OrderEvent[]
 
   @@index([active, roleId, id])
+  @@unique([id,userId],map:"admin_users_id_user_id_key")
   @@index([roleId])
   @@map("admin_users")
 }
 
 // Lifecycle/active-email uniqueness and transition guards are enforced in SQL.
 model AdminInvitation {
+ onboardingAttempts AdminOnboarding[]
  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
  email String
  role AdminRoleName
@@ -278,6 +282,59 @@ model AdminInvitation {
  @@index([revokedBy],map:"admin_invitations_revoked_by_idx")
  @@index([consumedUserId],map:"admin_invitations_consumed_user_idx")
  @@map("admin_invitations")
+}
+
+model AdminOnboarding {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ invitationId String @map("invitation_id") @db.Uuid
+ capabilityHash String @unique @map("capability_hash") @db.VarChar(64)
+ state String @default("verifying") @db.VarChar(24)
+ createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+ updatedAt DateTime @default(dbgenerated("clock_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+ expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+ version BigInt @default(1)
+ mailRequests Int @default(0) @map("mail_requests")
+ verificationAttempts Int @default(0) @map("verification_attempts")
+ lastMailAt DateTime? @map("last_mail_at") @db.Timestamptz(6)
+ mailboxVerifiedAt DateTime? @map("mailbox_verified_at") @db.Timestamptz(6)
+ verifiedChallengeId String? @map("verified_challenge_id") @db.Uuid
+ userId String? @unique @map("user_id")
+ membershipId String? @unique @map("membership_id") @db.Uuid
+ provisionedAt DateTime? @map("provisioned_at") @db.Timestamptz(6)
+ closedAt DateTime? @map("closed_at") @db.Timestamptz(6)
+ invitation AdminInvitation @relation(fields:[invitationId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ user User? @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ member AdminUser? @relation(fields:[membershipId,userId],references:[id,userId],onDelete:Restrict,onUpdate:Restrict)
+ challenges AdminMailboxChallenge[] @relation("OnboardingChallenges")
+ verifiedChallenge AdminMailboxChallenge? @relation("VerifiedMailboxChallenge",fields:[id,verifiedChallengeId],references:[onboardingId,id],onDelete:Restrict,onUpdate:Restrict)
+ @@index([invitationId,createdAt(sort:Desc)],map:"admin_onboarding_invitation_created_idx")
+ @@unique([membershipId,userId],map:"admin_onboarding_membership_id_user_id_key")
+ @@index([state,expiresAt],map:"admin_onboarding_expiry_idx")
+ @@map("admin_onboarding")
+}
+model AdminMailboxChallenge {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ onboardingId String @map("onboarding_id") @db.Uuid
+ verifier String @db.VarChar(64)
+ createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+ expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+ attempts Int @default(0)
+ deliveryState String @default("pending") @map("delivery_state") @db.VarChar(16)
+ deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+ receiptHash String? @map("receipt_hash") @db.VarChar(64)
+ consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+ invalidatedAt DateTime? @map("invalidated_at") @db.Timestamptz(6)
+ onboarding AdminOnboarding @relation("OnboardingChallenges",fields:[onboardingId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ verifiedBy AdminOnboarding[] @relation("VerifiedMailboxChallenge")
+ @@unique([onboardingId,id])
+ @@index([expiresAt],map:"admin_mailbox_challenges_expiry_idx")
+ @@map("admin_mailbox_challenges")
+}
+model StaffOnboardingLimit {
+ scope String @id @db.VarChar(24)
+ windowStart DateTime @map("window_start") @db.Timestamptz(6)
+ attempts Int
+ @@map("staff_onboarding_limits")
 }
 
 model ContentEntry {

@@ -1,21 +1,12 @@
 import "server-only";
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { prisma } from "./prisma";
 import { expireInvitation, invitationNow, invitationTransactionOptions, lockInvitationTransaction } from "./admin-invitations";
 import { invitationDeliveryConfig } from "./invitation-delivery-config";
 import { invitationVerifier, openInvitationSecret } from "./invitation-secrets";
 import type { AdminInvitation, Prisma } from "@/generated/prisma/client";
 
-async function receipt(response: Response): Promise<string> {
-  if (!response.ok || !response.body) throw new Error("Provider did not confirm acceptance.");
-  const reader = response.body.getReader(); let bytes = 0; const chunks: Uint8Array[] = [];
-  try {
-    for (;;) { const { done,value } = await reader.read(); if (done) break; bytes += value.length; if (bytes > 4096) throw new Error("Invalid provider confirmation."); chunks.push(value); }
-  } finally { await reader.cancel(); }
-  const data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  if (data.accepted !== true || typeof data.messageId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(data.messageId)) throw new Error("Invalid provider confirmation.");
-  return createHash("sha256").update("invitation-provider-receipt:v1\0").update(data.messageId).digest("hex");
-}
+import { sendLocalMail } from "./local-mail-delivery";
 
 // Shared finalization for real HTTP delivery and deterministic delayed-receipt
 // probes. The caller holds the governance advisory lock and invitation row lock.
@@ -79,8 +70,7 @@ export async function deliverNextInvitation(): Promise<{ status: string; id?: st
         const secret = openInvitationSecret(row.deliveryCiphertext!,row.id,config.key!);
         if (!timingSafeEqual(Buffer.from(invitationVerifier(secret),"hex"),Buffer.from(row.tokenHash,"hex"))) throw new Error("Invalid invitation material.");
         lastError = "provider_failure";
-        const response = await fetch(config.endpoint!, { method: "POST", redirect: "error", signal: AbortSignal.timeout(2000), headers: { "content-type": "application/json", "idempotency-key": row.id }, body: JSON.stringify({ to: row.email, subject: "Aafiyat staff invitation prepared", text: `A staff invitation for ${row.role} has been prepared. Redemption is not yet available. Reference: ${row.id}. Secret: ${secret}. Expires: ${row.expiresAt.toISOString()}.` }) });
-        messageId = await receipt(response);
+        messageId = await sendLocalMail(config.endpoint!, { id: row.id, to: row.email, subject: "Aafiyat staff invitation prepared", text: `A staff invitation for ${row.role} has been prepared. Redemption is not yet available. Reference: ${row.id}. Secret: ${secret}. Expires: ${row.expiresAt.toISOString()}.` });
       } catch { /* Never log request, token, ciphertext, provider body or raw errors. */ }
       return recordInvitationDelivery(tx,row,messageId,lastError);
     }, invitationTransactionOptions);

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { normalizeInvitationEmail, invitationEncryptionKey, createInvitationSecret, sealInvitationSecret, openInvitationSecret, invitationVerifier } from "../src/lib/invitation-secrets";
+import { normalizeInvitationEmail, invitationEncryptionKey, createInvitationSecret, sealInvitationSecret, openInvitationSecret, invitationVerifier, credentialEmailAccepted } from "../src/lib/invitation-secrets";
 
 let passed = 0;
 function check(name: string, f: () => void) { f(); passed++; console.log(`PASS: ${name}`); }
+check("invitation eligibility matches native credential-email validation", () => {
+  for (const address of ["a+b@example.invalid","a_b@example.invalid","a.b@example.invalid"]) assert(credentialEmailAccepted(address));
+  for (const address of ["a!b@example.invalid","a%b@example.invalid","a/b@example.invalid"]) { assert.equal(normalizeInvitationEmail(address),address); assert(!credentialEmailAccepted(address)); }
+});
 check("email normalization is bounded, ASCII and deterministic", () => {
   assert.equal(normalizeInvitationEmail("  Staff.Example+Team@EXAMPLE.invalid  "), "staff.example+team@example.invalid");
   for (const bad of ["", "a\n@example.invalid", "x@y", "a..b@example.invalid", ".a@example.invalid", "a@-bad.invalid", "ü@example.invalid", "a".repeat(255)+"@example.invalid"]) assert.throws(() => normalizeInvitationEmail(bad));

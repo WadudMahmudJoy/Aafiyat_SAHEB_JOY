@@ -1,5 +1,10 @@
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { z } from "zod";
+
+// Same pinned Zod email validator used inside Better Auth 1.7.7 sign-in.
+// RFC-normalizable addresses that cannot sign in must not create staff identities.
+export const credentialEmailAccepted = (email: string) => z.email().safeParse(email).success;
 
 export function normalizeInvitationEmail(raw: string): string {
   if (typeof raw !== "string" || raw.length > 300 || /[^\x20-\x7e]/.test(raw)) throw new Error("Invalid invitation email.");
