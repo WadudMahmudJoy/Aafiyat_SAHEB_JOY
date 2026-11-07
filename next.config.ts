@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  async headers() { return [{ source: "/staff/accept-invitation", headers: [{ key: "Referrer-Policy", value: "no-referrer" },{ key: "X-Robots-Tag", value: "noindex, nofollow" },{ key: "X-Frame-Options", value: "DENY" }] }]; },
+  async headers() { return [{ source: "/staff/accept-invitation", headers: [{ key: "Cache-Control", value: "no-store, private" },{ key: "Referrer-Policy", value: "no-referrer" },{ key: "X-Robots-Tag", value: "noindex, nofollow" },{ key: "X-Frame-Options", value: "DENY" }] }]; },
   experimental: {
     agentUpgrade: "security",
     serverActions: { bodySizeLimit: "9mb" },

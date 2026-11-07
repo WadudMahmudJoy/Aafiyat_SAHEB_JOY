@@ -5,12 +5,14 @@ import { readFileSync,writeFileSync,existsSync,unlinkSync,rmSync,lstatSync } fro
 import { resolve,sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { spawn,spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { createServer } from "node:http";
 import { symmetricEncrypt } from "better-auth/crypto";
 import { NextRequest } from "next/server";
 import { prisma } from "../src/lib/prisma";
 import { auth } from "../src/lib/auth";
 import { POST,GET } from "../src/app/api/staff/onboarding/route";
+import { POST as activationRoute } from "../src/app/api/staff/activation/route";
 import { ONBOARDING_COOKIE } from "../src/lib/staff-onboarding";
 import { invitationVerifier,createInvitationSecret } from "../src/lib/invitation-secrets";
 import { attemptVerifier,mailboxVerifier } from "../src/lib/onboarding-secrets";
@@ -60,10 +62,10 @@ async function start(inv:Invite,jar:Jar=new Map()){const r=await api(jar,{operat
 function latestCode(destination:string){const message=[...inbox].filter(([,m])=>m.to===destination&&m.subject==="Aafiyat mailbox verification").at(-1);assert(message);return {id:message[0],code:message[1].text.match(/code is (\d{8})/)![1]};}
 async function verified(inv:Invite){const r=await start(inv);assert(r.body.ok);assert((await api(r.jar,{operation:"request_code"})).body.ok);const code=latestCode(inv.email);assert((await api(r.jar,{operation:"verify",code:code.code})).body.ok);return {...r,code};}
 async function close(inv:Invite,operation="revoke"){const row=await prisma.adminInvitation.findUniqueOrThrow({where:{id:inv.id}}),form=new FormData();for(const[k,v]of Object.entries({operation,id:inv.id,version:row.version.toString(),confirm:"CONFIRM"}))form.set(k,v);assert((await changeInvitation(headers(ownerJar),form)).ok);}
-async function historical(state:string,expired=false,destination=email()):Promise<Invite>{const id=randomUUID(),secret=createInvitationSecret();await prisma.adminInvitation.create({data:{id,email:destination,role:"ORDER_MANAGER",invitedBy:owner.member,state,deliveryState:state==="revoked"?"cancelled":"delivered",tokenHash:invitationVerifier(secret),createdAt:new Date(Date.now()-172800000),expiresAt:new Date(Date.now()+(expired?-1000:172800000)),...(state==="revoked"?{revokedAt:new Date(),revokedBy:owner.member}:{deliveredAt:new Date(Date.now()-172700000),providerReceiptHash:randomBytes(32).toString("hex")})}});return{id,secret,email:destination,role:"ORDER_MANAGER"};}
+async function historical(state:string,expired=false,destination=email(),lifetime=172800000):Promise<Invite>{const id=randomUUID(),secret=createInvitationSecret();await prisma.adminInvitation.create({data:{id,email:destination,role:"ORDER_MANAGER",invitedBy:owner.member,state,deliveryState:state==="revoked"?"cancelled":"delivered",tokenHash:invitationVerifier(secret),createdAt:new Date(Date.now()-172800000),expiresAt:new Date(Date.now()+(expired?-1000:lifetime)),...(state==="consumed"?{consumedAt:new Date(),consumedUserId:owner.id}:{}),...(state==="revoked"?{revokedAt:new Date(),revokedBy:owner.member}:{deliveredAt:new Date(Date.now()-172700000),providerReceiptHash:randomBytes(32).toString("hex")})}});return{id,secret,email:destination,role:"ORDER_MANAGER"};}
 
 async function verify(){
-  await admin.connect();assert.equal((await admin.query("SELECT current_database() db")).rows[0].db,database);assert.equal((await admin.query("SELECT count(*)::int n FROM _prisma_migrations")).rows[0].n,12);
+  await admin.connect();assert.equal((await admin.query("SELECT current_database() db")).rows[0].db,database);assert.equal((await admin.query("SELECT count(*)::int n FROM _prisma_migrations")).rows[0].n,13);
   await new Promise<void>(r=>sink.listen(0,"127.0.0.1",r));const address=sink.address();assert(address&&typeof address==="object");mailboxOrigin=`http://127.0.0.1:${address.port}`;
   process.env.ADMIN_INVITATION_ENCRYPTION_KEY=deliveryKey;process.env.ADMIN_INVITATION_DELIVERY="local-sink";process.env.ADMIN_INVITATION_MAIL_SINK_URL=mailboxOrigin+"/messages";process.env.STAFF_ONBOARDING_VERIFICATION_KEY=codeKey;
   const first=await invitation("MARKETING_MANAGER","staff+"+randomUUID()+"@example.invalid");let firstJar:Jar=new Map(),firstPassword="";
@@ -87,7 +89,7 @@ async function verify(){
   });
   await check("invalid, revoked, expired, consumed and undelivered invitations are generic denials",async()=>{
     assert(!(await start({...first,secret:createInvitationSecret()})).body.ok);const revoked=await historical("revoked"),expired=await historical("delivered",true);for(const inv of[revoked,expired])assert(!(await start(inv)).body.ok);
-    const consumed=await invitation();await admin.query("UPDATE admin_invitations SET state='consumed',consumed_at=clock_timestamp(),consumed_user_id=$1,version=version+1 WHERE id=$2",[owner.id,consumed.id]);assert(!(await start(consumed)).body.ok);
+    const consumed=await historical("consumed");assert(!(await start(consumed)).body.ok);
     const id=randomUUID(),secret=createInvitationSecret();await prisma.adminInvitation.create({data:{id,email:email(),role:"ORDER_MANAGER",tokenHash:invitationVerifier(secret),invitedBy:owner.member,expiresAt:new Date(Date.now()+172800000)}});assert(!(await start({id,secret,email:"",role:"ORDER_MANAGER"})).body.ok);
   });
   await check("unsupported native sign-in addresses cannot issue invitations or provision legacy identities",async()=>{
@@ -162,21 +164,324 @@ async function verify(){
     await admin.query("INSERT INTO staff_onboarding_limits(scope,window_start,attempts) VALUES('start',clock_timestamp(),30) ON CONFLICT(scope) DO UPDATE SET window_start=excluded.window_start,attempts=30");const r=await start(first,new Map());assert(!r.body.ok);assert(r.body.message.includes("Too many requests"));assert.equal((await prisma.staffOnboardingLimit.findUniqueOrThrow({where:{scope:"start"}})).attempts,30);await admin.query("UPDATE staff_onboarding_limits SET window_start=clock_timestamp()-interval '61 seconds'");
   });
   await check("onboarding migration recreation rolls back without loss; audit remains append-only",async()=>{
-    const before=await prisma.adminOnboarding.findMany({orderBy:{id:"asc"}});await admin.query("BEGIN");try{await admin.query("DROP TRIGGER admin_invitation_close_onboarding ON admin_invitations;DROP FUNCTION close_invitation_onboarding();DROP TABLE admin_mailbox_challenges,admin_onboarding,staff_onboarding_limits;DROP FUNCTION protect_admin_onboarding();DROP FUNCTION protect_mailbox_challenge();ALTER TABLE admin_users DROP CONSTRAINT admin_users_id_user_id_key");await admin.query(readFileSync("prisma/migrations/20261030040000_add_staff_onboarding/migration.sql","utf8").replace(/^BEGIN;\s*/,"").replace(/COMMIT;\s*$/,""));}finally{await admin.query("ROLLBACK");}assert.deepEqual(await prisma.adminOnboarding.findMany({orderBy:{id:"asc"}}),before);for(const sql of["UPDATE audit_logs SET entity_id='bad'","DELETE FROM audit_logs","TRUNCATE audit_logs"])await assert.rejects(admin.query(sql));
+    const before=await prisma.adminOnboarding.findMany({orderBy:{id:"asc"}});await admin.query("BEGIN");try{await admin.query("DROP TRIGGER staff_invitation_consumption ON admin_invitations;DROP FUNCTION guard_staff_invitation_consumption();DROP TRIGGER invited_staff_activation ON admin_users;DROP FUNCTION guard_invited_staff_activation();DROP TRIGGER admin_invitation_close_onboarding ON admin_invitations;DROP FUNCTION close_invitation_onboarding();DROP TABLE admin_mailbox_challenges,admin_onboarding,staff_onboarding_limits;DROP FUNCTION protect_admin_onboarding();DROP FUNCTION protect_mailbox_challenge();ALTER TABLE admin_users DROP CONSTRAINT admin_users_id_user_id_key");await admin.query(readFileSync("prisma/migrations/20261030040000_add_staff_onboarding/migration.sql","utf8").replace(/^BEGIN;\s*/,"").replace(/COMMIT;\s*$/,""));}finally{await admin.query("ROLLBACK");}assert.deepEqual(await prisma.adminOnboarding.findMany({orderBy:{id:"asc"}}),before);for(const sql of["UPDATE audit_logs SET entity_id='bad'","DELETE FROM audit_logs","TRUNCATE audit_logs"])await assert.rejects(admin.query(sql));
   });
   await check("raw credentials/codes are absent from public DTOs and database logs",async()=>{
     const logs=spawnSync("docker",["logs",process.env.INVENTORY_TEST_CONTAINER!],{encoding:"utf8",windowsHide:true,maxBuffer:32*1024*1024});assert.equal(logs.status,0);const all=logs.stdout+logs.stderr;for(const message of inbox.values()){const raw=message.text.match(/Secret: ([A-Za-z0-9_-]{43})/)?.[1]??message.text.match(/code is (\d{8})/)?.[1];if(raw)assert(!all.includes(raw));}assert(!all.includes(firstPassword));const dto=JSON.stringify(await status(firstJar));for(const forbidden of["role","email","password","capabilityHash","verifier","mfaVerifiedAt"])assert(!dto.includes(forbidden));
   });
-  if(process.env.ONBOARDING_BROWSER==="1")await check("actual inactive-account onboarding browser acceptance",browserFixture);
+  if(process.env.STAFF_ACTIVATION_VERIFY==="1") await activationChecks();
+  if(process.env.ONBOARDING_BROWSER==="1")await check("actual staff onboarding browser acceptance",browserFixture);
   return {status:"PASSED",cases:results};
+}
+
+function authCode(key: string, time = Date.now()) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bytes: number[] = [];
+  let bits = 0, buffer = 0;
+  for (const char of key.toUpperCase()) {
+    const value = alphabet.indexOf(char);
+    assert(value >= 0);
+    buffer = (buffer << 5) | value;
+    bits += 5;
+    if (bits >= 8) bytes.push((buffer >>> (bits -= 8)) & 255);
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(time / 30_000)));
+  const digest = createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
+  return String((digest.readUInt32BE(digest[19] & 15) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}
+
+async function activateApi(jar: Jar, body: object, override?: Record<string, string>) {
+  const h = headers(jar);
+  h.set("content-type", "application/json");
+  h.set("x-staff-onboarding", "1");
+  for (const [key, value] of Object.entries(override ?? {})) h.set(key, value);
+  const response = await activationRoute(new NextRequest(origin + "/api/staff/activation", {
+    method: "POST", headers: h, body: JSON.stringify(body),
+  }));
+  absorb(jar, response);
+  assert.match(response.headers.get("cache-control")!, /no-store/);
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  return { status: response.status, body: await response.json() };
+}
+
+async function provisionRecipient(inv: Invite) {
+  const progress = await verified(inv);
+  const chosen = password();
+  assert((await api(progress.jar, { operation: "provision", password: chosen, confirmation: chosen })).body.ok);
+  const jar: Jar = new Map();
+  const signedIn = await request(jar, "/sign-in/email", { email: inv.email, password: chosen });
+  assert.equal(signedIn.status, 200);
+  assert(!signedIn.body.twoFactorRedirect);
+  const user = await prisma.user.findUniqueOrThrow({ where: { email: inv.email } });
+  return { inv, user, chosen, jar, capability: progress.jar };
+}
+
+type Recipient = Awaited<ReturnType<typeof provisionRecipient>>;
+async function openSetup(recipient: Recipient) {
+  const reply = await activateApi(recipient.jar, { operation: "setup", password: recipient.chosen });
+  assert(reply.body.ok, reply.body.message);
+  assert.match(reply.body.setupKey, /^[A-Z2-7]+$/i);
+  assert(!("backupCodes" in reply.body) && !("token" in reply.body));
+  return reply.body.setupKey as string;
+}
+
+async function pendingSnapshot(recipient: Recipient) {
+  const id = recipient.user.id;
+  const [invitation, onboarding, user, membership, factor, sessions, audits] = await Promise.all([
+    prisma.adminInvitation.findUniqueOrThrow({ where: { id: recipient.inv.id } }),
+    prisma.adminOnboarding.findUniqueOrThrow({ where: { userId: id } }),
+    prisma.user.findUniqueOrThrow({ where: { id } }),
+    prisma.adminUser.findUniqueOrThrow({ where: { userId: id } }),
+    prisma.twoFactor.findMany({ where: { userId: id }, orderBy: { id: "asc" } }),
+    prisma.session.findMany({ where: { userId: id }, orderBy: { id: "asc" } }),
+    prisma.auditLog.count({ where: { action: "onboarding.activate", actor: { userId: id } } }),
+  ]);
+  return { invitation, onboarding, user, membership, factor, sessions, audits };
+}
+
+async function freshRoleLogin(recipient: Recipient, key: string) {
+  const jar: Jar = new Map();
+  const signedIn = await request(jar, "/sign-in/email", { email: recipient.inv.email, password: recipient.chosen });
+  assert.equal(signedIn.status, 200);
+  assert.equal(signedIn.body.twoFactorRedirect, true);
+  for (const permission of ADMIN_PERMISSIONS) await assert.rejects(requireAdminPermission(permission, headers(jar)));
+  assert.equal((await request(jar, "/two-factor/verify-totp", { code: authCode(key) })).status, 200);
+  const expected: Record<string, string[]> = {
+    PRODUCT_MANAGER: ["catalog:read", "catalog:write", "inventory:manage"],
+    ORDER_MANAGER: ["orders:read", "orders:manage"],
+    MARKETING_MANAGER: ["catalog:read", "marketing:manage", "content:manage"],
+  };
+  for (const permission of ADMIN_PERMISSIONS) {
+    if (expected[recipient.inv.role].includes(permission)) {
+      assert.equal((await requireAdminPermission(permission, headers(jar))).role, recipient.inv.role);
+    } else {
+      await assert.rejects(requireAdminPermission(permission, headers(jar)));
+    }
+  }
+  return jar;
+}
+
+async function activationChecks() {
+  let recipient: Recipient;
+  let key = "";
+  await check("fresh native password login resumes after lost cookie and original attempt deadline", async () => {
+    recipient = await provisionRecipient(await invitation());
+    assert(!recipient.jar.has(ONBOARDING_COOKIE));
+    assert.equal((await activateApi(new Map(), { operation: "status" })).body.stage, "sign_in");
+    assert(!(await request(new Map(), "/sign-in/email", { email: recipient.inv.email, password: password() })).body.token);
+    assert.equal((await activateApi(ownerJar, { operation: "status" })).body.stage, "unavailable");
+    assert.equal((await activateApi(recipient.jar, { operation: "status", userId: owner.id })).status, 400);
+    assert.equal((await activateApi(recipient.jar, { operation: "status" }, { origin: "https://evil.invalid" })).status, 400);
+    // Move the *disposable* attempt's original deadline into the past, leaving
+    // the bound invitation valid. Restore the ALWAYS trigger immediately.
+    await admin.query("BEGIN");
+    try {
+      await admin.query("ALTER TABLE admin_onboarding DISABLE TRIGGER admin_onboarding_transition");
+      await admin.query("UPDATE admin_onboarding SET created_at=clock_timestamp()-interval '31 minutes',expires_at=clock_timestamp()-interval '1 minute 1 second' WHERE user_id=$1", [recipient.user.id]);
+      await admin.query("ALTER TABLE admin_onboarding ENABLE ALWAYS TRIGGER admin_onboarding_transition");
+      await admin.query("COMMIT");
+    } catch (error) {
+      await admin.query("ROLLBACK");
+      throw error;
+    }
+    assert(!(await status(recipient.capability)).ok);
+    assert(!(await api(recipient.capability, { operation: "request_code" })).body.ok);
+    assert.equal((await activateApi(recipient.jar, { operation: "status" })).body.stage, "setup");
+    assert(!(await activateApi(recipient.jar, { operation: "setup", password: password() })).body.ok);
+    assert.equal((await activateApi(recipient.jar, { operation: "activate", code: "123456" })).body.stage, "setup");
+    for (const permission of ADMIN_PERMISSIONS) await assert.rejects(requireAdminPermission(permission, headers(recipient.jar)));
+  });
+  await check("enrollment is scoped, concurrent setup returns one exact pending factor and native public verification denies it", async () => {
+    const direct = new Map(recipient.jar);
+    assert((await request(direct, "/two-factor/enable", { password: recipient.chosen })).status >= 400);
+    const both = await Promise.all([openSetup(recipient), openSetup({ ...recipient, jar: new Map(recipient.jar) })]);
+    key = both[0];
+    assert(both[1] === key, "Concurrent setup must recover the same factor");
+    const state = await pendingSnapshot(recipient);
+    assert.equal(state.factor.length, 1);
+    assert.equal(state.factor[0].verified, false);
+    assert.equal(state.user.twoFactorEnabled, false);
+    assert.equal(state.factor[0].id, state.onboarding.enrollmentFactorId);
+    assert((await request(direct, "/two-factor/get-totp-uri", { password: recipient.chosen })).status >= 400);
+    assert((await request(direct, "/two-factor/verify-totp", { code: authCode(key) })).status >= 400);
+    const wrong = [0,1,2].map(n => String(n).padStart(6,"0")).find(value =>
+      ![-30_000,0,30_000].some(offset => value === authCode(key, Date.now()+offset)))!;
+    assert(!(await activateApi(recipient.jar, { operation: "activate", code: wrong })).body.ok);
+    assert.equal((await pendingSnapshot(recipient)).onboarding.enrollmentFailures, 1);
+    await assert.rejects(admin.query("UPDATE admin_users SET active=true WHERE user_id=$1", [recipient.user.id]));
+    await assert.rejects(admin.query("UPDATE admin_invitations SET state='consumed',consumed_at=clock_timestamp(),consumed_user_id=$1,version=version+1 WHERE id=$2", [recipient.user.id,recipient.inv.id]));
+  });
+  await check("activation audit failure rolls back Better Auth factor and session rotation with all application writes", async () => {
+    const before = await pendingSnapshot(recipient);
+    await admin.query("CREATE FUNCTION test_activation_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='onboarding.activate' THEN RAISE EXCEPTION 'TEST activation audit failure'; END IF; RETURN NEW; END $$;CREATE TRIGGER test_activation_failure BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION test_activation_failure()");
+    try {
+      assert(!(await activateApi(recipient.jar, { operation: "activate", code: authCode(key) })).body.ok);
+      assert.deepEqual(await pendingSnapshot(recipient), before);
+    } finally {
+      await admin.query("DROP TRIGGER test_activation_failure ON audit_logs; DROP FUNCTION test_activation_failure()");
+    }
+  });
+  await check("process termination after native TOTP verification rolls back and fresh login resumes the exact factor", async () => {
+    const before = await pendingSnapshot(recipient);
+    await admin.query("CREATE FUNCTION test_activation_interrupt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='onboarding.activate' THEN PERFORM pg_advisory_xact_lock(88013,1); END IF; RETURN NEW; END $$;CREATE TRIGGER test_activation_interrupt BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION test_activation_interrupt()");
+    await admin.query("SELECT pg_advisory_lock(88013,1)");
+    const child = spawn(process.execPath, ["--conditions=react-server", "--import", "tsx", resolve("scripts/verify-staff-onboarding.ts"), "--interrupt-activation"],
+      { windowsHide: true, stdio: ["pipe", "ignore", "ignore"] });
+    const stopped = once(child, "exit");
+    try {
+      child.stdin.end(JSON.stringify({ cookie: headers(recipient.jar).get("cookie"), code: authCode(key) }));
+      let waiting = false;
+      for (let i = 0; i < 125 && child.exitCode === null; i++) {
+        waiting = (await admin.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND classid=88013 AND objid=1 AND NOT granted) waiting")).rows[0].waiting;
+        if (waiting) break;
+        await delay(40);
+      }
+      assert(waiting, "Child must reach the audit barrier after verification and session rotation");
+      assert(child.kill());
+      await stopped;
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) { child.kill(); await stopped; }
+      await admin.query("SELECT pg_advisory_unlock(88013,1)");
+      await admin.query("BEGIN; SET LOCAL lock_timeout='5s'; SELECT pg_advisory_xact_lock(88009,1); ROLLBACK");
+      await admin.query("DROP TRIGGER test_activation_interrupt ON audit_logs; DROP FUNCTION test_activation_interrupt()");
+    }
+    assert.deepEqual(await pendingSnapshot(recipient), before);
+    const freshJar: Jar = new Map();
+    assert.equal((await request(freshJar, "/sign-in/email", { email: recipient.inv.email, password: recipient.chosen })).status, 200);
+    assert.equal((await activateApi(freshJar, { operation: "status" })).body.stage, "verify");
+    assert(await openSetup({ ...recipient, jar: freshJar }) === key, "Recovery must keep the exact factor");
+  });
+  await check("concurrent activation consumes once, revokes all sessions, rejects replay and enforces cutoff", async () => {
+    const oldJar = new Map(recipient.jar);
+    const before = await pendingSnapshot(recipient);
+    const obsolete = "2fa-" + randomUUID();
+    for (const [identifier,value] of [[obsolete,recipient.user.id],["2fa-attempts-"+obsolete,"0"]]) {
+      await prisma.verification.create({ data: { id: randomUUID(), identifier, value, expiresAt: new Date(Date.now()+60_000) } });
+    }
+    const results = await Promise.all([activateApi(recipient.jar, { operation: "activate", code: authCode(key) }),
+      activateApi(new Map(oldJar), { operation: "activate", code: authCode(key) })]);
+    assert.equal(results.filter(r => r.body.stage === "completed").length, 1);
+    const after = await pendingSnapshot(recipient);
+    assert.equal(after.invitation.state, "consumed");
+    assert.equal(after.invitation.consumedUserId, recipient.user.id);
+    assert.equal(after.onboarding.state, "completed");
+    assert.equal(after.membership.active, true);
+    assert.equal(after.membership.governanceVersion, before.membership.governanceVersion + BigInt(1));
+    assert(after.membership.authorizationNotBefore > before.membership.authorizationNotBefore);
+    assert.equal(after.sessions.length, 0);
+    assert.equal(after.audits, 1);
+    assert.equal(await prisma.verification.count({ where: { identifier: { in: [obsolete, "2fa-attempts-"+obsolete] } } }), 0);
+    assert(!(await start(recipient.inv)).body.ok);
+    assert(!(await activateApi(oldJar, { operation: "activate", code: authCode(key) })).body.ok);
+    assert(!(await status(recipient.capability)).ok);
+    await assert.rejects(admin.query("UPDATE admin_invitations SET state='delivered',version=version+1 WHERE id=$1", [recipient.inv.id]));
+    const oldSession = before.sessions.find(s => decodeURIComponent(headers(oldJar).get("cookie")!).includes(s.token))!;
+    assert(oldSession);
+    await prisma.session.create({ data: { ...oldSession, mfaVerifiedAt: oldSession.createdAt } });
+    for (const permission of ADMIN_PERMISSIONS) await assert.rejects(requireAdminPermission(permission, headers(oldJar)));
+    await prisma.session.delete({ where: { id: oldSession.id } });
+    const jar = await freshRoleLogin(recipient, key);
+    assert.equal((await activateApi(jar, { operation: "status" })).body.stage, "completed");
+    assert(!(await activateApi(jar, { operation: "setup", password: recipient.chosen })).body.ok);
+  });
+  await check("revocation during enrollment and stale password sessions fail closed", async () => {
+    const revoked = await provisionRecipient(await invitation("ORDER_MANAGER"));
+    const revokedKey = await openSetup(revoked);
+    await close(revoked.inv);
+    assert(!(await activateApi(revoked.jar, { operation: "activate", code: authCode(revokedKey) })).body.ok);
+    assert.equal((await pendingSnapshot(revoked)).factor[0].verified, false);
+    const stale = await provisionRecipient(await invitation("MARKETING_MANAGER"));
+    await prisma.session.updateMany({ where: { userId: stale.user.id }, data: { createdAt: new Date(Date.now()-6*60_000) } });
+    assert.equal((await activateApi(stale.jar, { operation: "setup", password: stale.chosen })).body.stage, "sign_in");
+    assert.equal((await pendingSnapshot(stale)).factor.length, 0);
+  });
+  await check("verification is identity-bound, rate limits survive fresh login, and Owner factor controls stay private", async () => {
+    const limited = await provisionRecipient(await invitation("MARKETING_MANAGER"));
+    const limitedKey = await openSetup(limited);
+    const wrong = ["000000","000001","000002","000003"].find(value =>
+      ![-60_000,-30_000,0,30_000,60_000].some(offset => value === authCode(limitedKey, Date.now()+offset)))!;
+    for (let i = 0; i < 5; i++) assert(!(await activateApi(limited.jar, { operation: "activate", code: wrong })).body.ok);
+    const state = await pendingSnapshot(limited);
+    assert.equal(state.onboarding.enrollmentFailures, 5);
+    assert(state.onboarding.enrollmentLockedUntil! > new Date());
+    const freshJar: Jar = new Map();
+    assert.equal((await request(freshJar, "/sign-in/email", { email: limited.inv.email, password: limited.chosen })).status, 200);
+    assert(!(await activateApi(freshJar, { operation: "activate", code: authCode(limitedKey) })).body.ok);
+    assert.equal((await pendingSnapshot(limited)).factor[0].verified, false);
+
+    const other = await provisionRecipient(await invitation("ORDER_MANAGER"));
+    const otherKey = await openSetup(other);
+    const time = Date.now();
+    const stolenCode = [-30_000,0,30_000].map(offset => authCode(limitedKey,time+offset)).find(code =>
+      ![-60_000,-30_000,0,30_000,60_000].some(offset => code === authCode(otherKey,time+offset)))!;
+    assert(!(await activateApi(other.jar, { operation: "activate", code: stolenCode })).body.ok);
+    assert.equal((await pendingSnapshot(other)).factor[0].verified, false);
+    assert.equal((await activateApi(other.jar, { operation: "setup", password: other.chosen, role: "OWNER" })).status, 400);
+    for (const path of ["/two-factor/enable","/two-factor/get-totp-uri","/two-factor/disable","/two-factor/verify-backup-code"]) {
+      assert((await request(new Map(ownerJar), path, { password: owner.password })).status >= 400);
+    }
+    assert.equal((await requireAdminPermission("admins:manage", headers(ownerJar))).role, "OWNER");
+  });
+  await check("invitation expiry during activation audit rolls back factor, sessions, consumption and membership", async () => {
+    const inv = await historical("delivered", false, email(), 7_000);
+    const expiring = await provisionRecipient(inv);
+    const expiringKey = await openSetup(expiring);
+    const before = await pendingSnapshot(expiring);
+    await admin.query("CREATE FUNCTION test_activation_expiry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='onboarding.activate' THEN PERFORM pg_sleep(2.5); END IF; RETURN NEW; END $$;CREATE TRIGGER test_activation_expiry BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION test_activation_expiry()");
+    try {
+      await delay(Math.max(0, before.invitation.expiresAt.getTime() - Date.now() - 1_500));
+      const started = Date.now();
+      assert(!(await activateApi(expiring.jar, { operation: "activate", code: authCode(expiringKey) })).body.ok);
+      assert(Date.now()-started >= 2400, "Must enter the activation transaction before expiry");
+      assert.deepEqual(await pendingSnapshot(expiring), before);
+      assert.equal((await activateApi(expiring.jar, { operation: "status" })).body.stage, "unavailable");
+    } finally {
+      await admin.query("DROP TRIGGER test_activation_expiry ON audit_logs; DROP FUNCTION test_activation_expiry()");
+    }
+  });
+  await check("native fresh login gives Order and Marketing staff exactly their assigned permissions", async () => {
+    for (const role of ["ORDER_MANAGER", "MARKETING_MANAGER"]) {
+      const staff = await provisionRecipient(await invitation(role));
+      const staffKey = await openSetup(staff);
+      assert((await activateApi(staff.jar, { operation: "activate", code: authCode(staffKey) })).body.ok);
+      await freshRoleLogin(staff, staffKey);
+    }
+  });
+  await check("activation audit rows and PostgreSQL statement logs omit setup keys, TOTP, passwords and invitation secrets", async () => {
+    const logs = spawnSync("docker", ["logs", process.env.INVENTORY_TEST_CONTAINER!], { encoding: "utf8", windowsHide: true, maxBuffer: 32*1024*1024 });
+    assert.equal(logs.status,0);
+    const audits = await prisma.auditLog.findMany({ where: { action: { in: ["onboarding.enroll", "onboarding.activate"] } }, select: { summary: true } });
+    assert(audits.length >= 6);
+    const audit = JSON.stringify(audits);
+    assert(!/secret|password|token|backup|code/i.test(audit));
+    for (const secret of [recipient.chosen, recipient.inv.secret, key]) {
+      assert(!(logs.stdout + logs.stderr).includes(secret) && !audit.includes(secret));
+    }
+  });
 }
 
 async function browserFixture(){
   const success=await invitation("ORDER_MANAGER"),revoked=await invitation(),bad=await invitation();await close(revoked);
+  const activation = process.env.STAFF_ACTIVATION_VERIFY==="1";
+  const expired = activation ? await historical("delivered",true) : undefined;
   const server=createServer();await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));const address=server.address();assert(address&&typeof address==="object");const port=address.port;await new Promise<void>(r=>server.close(()=>r()));const base=`http://127.0.0.1:${port}`,generated=readFileSync("next-env.d.ts"),config=readFileSync("tsconfig.json");
   const child=spawn(process.execPath,[resolve("scripts/inventory-test-server.mjs"),String(port)],{env:{...process.env,AAFIYAT_INVENTORY_TEST_RUN:run,BETTER_AUTH_URL:base,NODE_ENV:"development",NEXT_TELEMETRY_DISABLED:"1"},windowsHide:true,stdio:"ignore"});
   const ready=process.env.INVENTORY_TEST_RESULTS+".browser-ready.json",finished=process.env.INVENTORY_TEST_RESULTS+".browser-finished.json";
-  try{let booted=false;for(let i=0;i<40;i++){try{if((await fetch(base+"/staff/accept-invitation",{signal:AbortSignal.timeout(5000)})).ok){booted=true;break;}}catch{}await delay(500);}assert(booted);writeFileSync(ready,JSON.stringify({origin:base,success,revoked,bad,mailboxOrigin,mailboxAccess,databaseUrl:process.env.INVENTORY_TEST_ADMIN_URL,finished}),{mode:0o600});console.log("BROWSER_READY "+ready);for(let i=0;i<2400&&!existsSync(finished);i++)await delay(500);assert(existsSync(finished));assert.equal(JSON.parse(readFileSync(finished,"utf8")).status,"PASSED");const user=await prisma.user.findUniqueOrThrow({where:{email:success.email},include:{adminUser:true}});assert.equal(user.adminUser?.active,false);assert.equal(user.twoFactorEnabled,false);assert.equal(await prisma.twoFactor.count({where:{userId:user.id}}),0);assert.equal((await prisma.adminInvitation.findUniqueOrThrow({where:{id:success.id}})).consumedAt,null);
+  try{let booted=false;for(let i=0;i<40;i++){try{if((await fetch(base+"/staff/accept-invitation",{signal:AbortSignal.timeout(5000)})).ok){booted=true;break;}}catch{}await delay(500);}assert(booted);writeFileSync(ready,JSON.stringify({origin:base,success,revoked,bad,expired,mailboxOrigin,mailboxAccess,databaseUrl:process.env.INVENTORY_TEST_ADMIN_URL,finished}),{mode:0o600});console.log("BROWSER_READY "+ready);for(let i=0;i<2400&&!existsSync(finished);i++)await delay(500);assert(existsSync(finished));assert.equal(JSON.parse(readFileSync(finished,"utf8")).status,"PASSED");const user=await prisma.user.findUniqueOrThrow({where:{email:success.email},include:{adminUser:true}});assert.equal(user.adminUser?.active,activation);assert.equal(user.twoFactorEnabled,activation);assert.equal(await prisma.twoFactor.count({where:{userId:user.id,verified:true}}),activation?1:0);const redeemed=await prisma.adminInvitation.findUniqueOrThrow({where:{id:success.id}});assert.equal(redeemed.consumedUserId,activation?user.id:null);assert.equal(redeemed.consumedAt!==null,activation);
   }finally{if(child.pid)spawnSync("taskkill",["/PID",String(child.pid),"/T","/F"],{windowsHide:true,stdio:"ignore"});if(existsSync(ready))unlinkSync(ready);writeFileSync("next-env.d.ts",generated);writeFileSync("tsconfig.json",config);const output=resolve(`.local/inventory-a1-build-${run}`);assert(output.startsWith(resolve(".local")+sep));if(existsSync(output)){assert(!lstatSync(output).isSymbolicLink());rmSync(output,{recursive:true,force:true,maxRetries:3,retryDelay:300});}}
 }
-verify().then(r=>writeFileSync(process.env.INVENTORY_TEST_RESULTS!,JSON.stringify(r,null,2))).catch(e=>{writeFileSync(process.env.INVENTORY_TEST_RESULTS!,JSON.stringify({status:"FAILED",failedAt:current,name:e?.name,code:e?.code,assertion:e instanceof assert.AssertionError?e.message:undefined,cases:results},null,2));console.error("FAIL: "+current+" "+e?.name);process.exitCode=1;}).finally(async()=>{await prisma.$disconnect();await admin.end();await new Promise<void>(r=>sink.close(()=>r()));});
+async function interruptActivation() {
+  const { cookie, code } = JSON.parse(readFileSync(0, "utf8"));
+  const h = headers(new Map());
+  h.set("cookie", cookie);
+  h.set("content-type", "application/json");
+  h.set("x-staff-onboarding", "1");
+  await activationRoute(new NextRequest(origin+"/api/staff/activation", { method:"POST", headers:h, body:JSON.stringify({operation:"activate",code}) }));
+}
+
+if (process.argv.includes("--interrupt-activation")) {
+  interruptActivation().catch(() => { process.exitCode = 1; }).finally(() => prisma.$disconnect());
+} else {
+  verify().then(r=>writeFileSync(process.env.INVENTORY_TEST_RESULTS!,JSON.stringify(r,null,2))).catch(e=>{writeFileSync(process.env.INVENTORY_TEST_RESULTS!,JSON.stringify({status:"FAILED",failedAt:current,name:e?.name,code:e?.code,location:typeof e?.stack==="string"?e.stack.split("\n").find((line:string)=>/^\s+at /.test(line)):undefined,cases:results},null,2));console.error("FAIL: "+current+" "+e?.name);process.exitCode=1;}).finally(async()=>{await prisma.$disconnect();await admin.end();await new Promise<void>(r=>sink.close(()=>r()));});
+}

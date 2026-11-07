@@ -58,7 +58,7 @@ async function forceDue(id:string){await admin.query("UPDATE admin_invitations S
 
 async function verify() {
   await admin.connect();assert.equal((await admin.query("SELECT current_database() db")).rows[0].db,database);
-  assert.equal((await admin.query("SELECT count(*)::int n FROM _prisma_migrations")).rows[0].n,12);
+  assert.equal((await admin.query("SELECT count(*)::int n FROM _prisma_migrations")).rows[0].n,13);
   await new Promise<void>(r=>sink.listen(0,"127.0.0.1",r));const address=sink.address();assert(address&&typeof address==="object");
   const endpoint=`http://127.0.0.1:${address.port}/messages`;
   const owner=await identity("OWNER","TEST Invitation Owner"),staff=await identity("PRODUCT_MANAGER","TEST Invitation staff");
@@ -170,7 +170,7 @@ async function verify() {
     for(const row of await prisma.adminInvitation.findMany({where:{invitedBy:limited.member}}))assert((await changeInvitation(lh,await closeForm(row.id))).ok);
   });
   await check("migration recreation/rollback and append-only audit preserve history",async()=>{
-    const before=(await admin.query("SELECT md5(jsonb_agg(to_jsonb(t) ORDER BY id)::text) hash FROM admin_invitations t")).rows[0];await admin.query("BEGIN");try{await admin.query("DROP TRIGGER admin_invitation_close_onboarding ON admin_invitations;DROP FUNCTION close_invitation_onboarding();DROP TABLE admin_mailbox_challenges,admin_onboarding,staff_onboarding_limits;DROP FUNCTION protect_admin_onboarding();DROP FUNCTION protect_mailbox_challenge();ALTER TABLE admin_users DROP CONSTRAINT admin_users_id_user_id_key;DROP TABLE admin_invitations;DROP FUNCTION protect_admin_invitation()");await admin.query(readFileSync("prisma/migrations/20261030030000_add_admin_invitations/migration.sql","utf8").replace(/^BEGIN;\s*/,"").replace(/COMMIT;\s*$/,""));}finally{await admin.query("ROLLBACK");}assert.deepEqual((await admin.query("SELECT md5(jsonb_agg(to_jsonb(t) ORDER BY id)::text) hash FROM admin_invitations t")).rows[0],before);
+    const before=(await admin.query("SELECT md5(jsonb_agg(to_jsonb(t) ORDER BY id)::text) hash FROM admin_invitations t")).rows[0];await admin.query("BEGIN");try{await admin.query("DROP TRIGGER staff_invitation_consumption ON admin_invitations;DROP FUNCTION guard_staff_invitation_consumption();DROP TRIGGER invited_staff_activation ON admin_users;DROP FUNCTION guard_invited_staff_activation();DROP TRIGGER admin_invitation_close_onboarding ON admin_invitations;DROP FUNCTION close_invitation_onboarding();DROP TABLE admin_mailbox_challenges,admin_onboarding,staff_onboarding_limits;DROP FUNCTION protect_admin_onboarding();DROP FUNCTION protect_mailbox_challenge();ALTER TABLE admin_users DROP CONSTRAINT admin_users_id_user_id_key;DROP TABLE admin_invitations;DROP FUNCTION protect_admin_invitation()");await admin.query(readFileSync("prisma/migrations/20261030030000_add_admin_invitations/migration.sql","utf8").replace(/^BEGIN;\s*/,"").replace(/COMMIT;\s*$/,""));}finally{await admin.query("ROLLBACK");}assert.deepEqual((await admin.query("SELECT md5(jsonb_agg(to_jsonb(t) ORDER BY id)::text) hash FROM admin_invitations t")).rows[0],before);
     for(const sql of ["UPDATE audit_logs SET entity_id='bad'","DELETE FROM audit_logs","TRUNCATE audit_logs"])await assert.rejects(admin.query(sql));
   });
   await check("existing governance cutoff still rejects role-revoked invitation requests",async()=>{

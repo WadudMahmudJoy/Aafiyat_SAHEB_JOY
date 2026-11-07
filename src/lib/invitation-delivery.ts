@@ -70,7 +70,7 @@ export async function deliverNextInvitation(): Promise<{ status: string; id?: st
         const secret = openInvitationSecret(row.deliveryCiphertext!,row.id,config.key!);
         if (!timingSafeEqual(Buffer.from(invitationVerifier(secret),"hex"),Buffer.from(row.tokenHash,"hex"))) throw new Error("Invalid invitation material.");
         lastError = "provider_failure";
-        messageId = await sendLocalMail(config.endpoint!, { id: row.id, to: row.email, subject: "Aafiyat staff invitation prepared", text: `A staff invitation for ${row.role} has been prepared. Redemption is not yet available. Reference: ${row.id}. Secret: ${secret}. Expires: ${row.expiresAt.toISOString()}.` });
+        messageId = await sendLocalMail(config.endpoint!, { id: row.id, to: row.email, subject: "Aafiyat staff invitation", text: `You have been invited as ${row.role}. Open the staff invitation page (/staff/accept-invitation) on Aafiyat SAHEB and enter the reference and secret below. Verify your mailbox, choose a password and set up your authenticator app. Reference: ${row.id}. Secret: ${secret}. Expires: ${row.expiresAt.toISOString()}.` });
       } catch { /* Never log request, token, ciphertext, provider body or raw errors. */ }
       return recordInvitationDelivery(tx,row,messageId,lastError);
     }, invitationTransactionOptions);

@@ -16,7 +16,7 @@ export type OnboardingResult={ok:boolean;message:string;stage?:"verifying"|"mail
 type Envelope={result:OnboardingResult;capability?:string};
 const denied=():OnboardingResult=>({ok:false,message:"Unable to continue. Check your invitation or contact the inviting administrator."});
 const unavailable=():OnboardingResult=>({ok:false,message:"Mailbox verification delivery is unavailable. Contact the inviting administrator."});
-const progress=(state:string):OnboardingResult=>({ok:true,stage:state as OnboardingResult["stage"],message:state==="provisioned"?"Password setup complete. Your staff identity is inactive. TOTP enrollment and activation are not available in this stage.":state==="mailbox_verified"?"Mailbox verified. Choose and confirm your password.":"Invitation accepted for verification only. Request a mailbox code to continue."});
+const progress=(state:string):OnboardingResult=>({ok:true,stage:state as OnboardingResult["stage"],message:state==="provisioned"?"Password setup complete. Sign in to enroll your authenticator and activate your staff membership.":state==="mailbox_verified"?"Mailbox verified. Choose and confirm your password.":"Invitation accepted for verification only. Request a mailbox code to continue."});
 const equal=(a:string,b:string)=>/^[a-f0-9]{64}$/.test(a)&&/^[a-f0-9]{64}$/.test(b)&&timingSafeEqual(Buffer.from(a,"hex"),Buffer.from(b,"hex"));
 function eligible(inv:{email:string;state:string;deliveryState:string;expiresAt:Date;role:string;deliveredAt:Date|null;providerReceiptHash:string|null},now:Date){return credentialEmailAccepted(inv.email)&&inv.state==="delivered"&&inv.deliveryState==="delivered"&&inv.deliveredAt!==null&&inv.providerReceiptHash!==null&&inv.expiresAt>now&&STAFF_ROLES.includes(inv.role as typeof STAFF_ROLES[number]);}
 function trusted(headers:Headers){const base=auth.options.baseURL;if(typeof base!=="string"||headers.get("origin")!==new URL(base).origin||headers.get("sec-fetch-site")==="cross-site")throw new Error("Denied");}
@@ -39,7 +39,7 @@ async function bound(tx:Prisma.TransactionClient,raw:string|undefined){
   await tx.$queryRaw`SELECT id FROM admin_onboarding WHERE id=${id}::uuid FOR UPDATE`;
   const row=await tx.adminOnboarding.findUniqueOrThrow({where:{id},include:{invitation:true,verifiedChallenge:true}}),now=await invitationNow(tx);
   if(!eligible(row.invitation,now)||["expired","abandoned"].includes(row.state))return null;
-  if(row.expiresAt<=now){await closeAttempt(tx,id,"expired",row.invitation.invitedBy);return null;}
+  if(row.expiresAt<=now){if(row.state!=="provisioned")await closeAttempt(tx,id,"expired",row.invitation.invitedBy);return null;}
   return row;
 }
 async function begin(raw:string|undefined,id:string,secret:string):Promise<Envelope>{
@@ -50,7 +50,7 @@ async function begin(raw:string|undefined,id:string,secret:string):Promise<Envel
     if(!inv||!eligible(inv,now)||!equal(inv.tokenHash,hash))return {result:denied()};
     const resumed=await bound(tx,raw);if(resumed?.invitationId===id)return {result:progress(resumed.state)};
     const active=await tx.adminOnboarding.findMany({where:{invitationId:id,state:{in:["verifying","mailbox_verified","provisioned"]}}});
-    for(const row of active)if(row.expiresAt<=now)await closeAttempt(tx,row.id,"expired",inv.invitedBy);
+    for(const row of active)if(row.expiresAt<=now&&row.state!=="provisioned")await closeAttempt(tx,row.id,"expired",inv.invitedBy);
     if(active.some(row=>row.expiresAt>now)||await tx.user.findFirst({where:{email:{equals:inv.email,mode:"insensitive"}},select:{id:true}})||await tx.adminOnboarding.count({where:{invitationId:id}})>=3)return {result:denied()};
     const attemptId=randomUUID(),capability=attemptId+"."+randomBytes(32).toString("base64url");
     await tx.adminOnboarding.create({data:{id:attemptId,invitationId:id,capabilityHash:attemptVerifier(capability),createdAt:now,expiresAt:new Date(Math.min(inv.expiresAt.getTime(),now.getTime()+1800000))}});

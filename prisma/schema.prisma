@@ -190,7 +190,9 @@ model TwoFactor {
   verified                Boolean?  @default(true)
   failedVerificationCount Int?      @default(0)
   lockedUntil             DateTime? @db.Timestamptz(6)
+  staffEnrollments        AdminOnboarding[]
 
+  @@unique([id,userId],map:"auth_two_factors_id_user_id_key")
   @@index([secret])
   @@index([userId])
   @@map("auth_two_factors")
@@ -302,6 +304,12 @@ model AdminOnboarding {
  membershipId String? @unique @map("membership_id") @db.Uuid
  provisionedAt DateTime? @map("provisioned_at") @db.Timestamptz(6)
  closedAt DateTime? @map("closed_at") @db.Timestamptz(6)
+ enrollmentFactorId String? @map("enrollment_factor_id")
+ enrollmentStartedAt DateTime? @map("enrollment_started_at") @db.Timestamptz(6)
+ enrollmentFailures Int @default(0) @map("enrollment_failures")
+ enrollmentLockedUntil DateTime? @map("enrollment_locked_until") @db.Timestamptz(6)
+ activatedAt DateTime? @map("activated_at") @db.Timestamptz(6)
+ enrollmentFactor TwoFactor? @relation(fields:[enrollmentFactorId,userId],references:[id,userId],onDelete:Restrict,onUpdate:Restrict)
  invitation AdminInvitation @relation(fields:[invitationId],references:[id],onDelete:Restrict,onUpdate:Restrict)
  user User? @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
  member AdminUser? @relation(fields:[membershipId,userId],references:[id,userId],onDelete:Restrict,onUpdate:Restrict)

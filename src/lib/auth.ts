@@ -6,6 +6,7 @@ import { twoFactor } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
 import { sessionMfaProof } from "@/lib/session-mfa-proof";
 import { currentLocalOwnerEnrollment } from "@/lib/local-owner-enrollment-scope";
+import { authPrisma, currentStaffEnrollment } from "@/lib/staff-enrollment-scope";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret || secret.length < 32 || secret.startsWith("<")) {
@@ -42,7 +43,6 @@ const allowedPaths = new Set([
   "/two-factor/verify-totp",
 ]);
 
-// Factor management stays disabled until coordinated session revocation exists.
 export const auth = betterAuth({
   appName: "Aafiyat",
   baseURL: baseUrl.origin,
@@ -50,7 +50,7 @@ export const auth = betterAuth({
   trustedOrigins: [baseUrl.origin],
   logger: { disabled: true }, // Never emit raw auth/adapter exceptions or request data.
   rateLimit: { enabled: true },
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  database: prismaAdapter(authPrisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
@@ -74,6 +74,26 @@ export const auth = betterAuth({
     before: createAuthMiddleware(async (ctx) => {
       let controlledEnrollment = false;
       const localScope = currentLocalOwnerEnrollment();
+      const staffScope = currentStaffEnrollment();
+      if (staffScope || ctx.path === "/two-factor/verify-totp") {
+        const session = await getSessionFromCtx(ctx, { disableCookieCache: true, disableRefresh: true });
+        if (staffScope) {
+          controlledEnrollment = ctx.path === staffScope.path &&
+            ctx.headers?.get("origin") === baseUrl.origin &&
+            session?.user.id === staffScope.userId && session.session.id === staffScope.sessionId;
+          if (!controlledEnrollment) throw new APIError("FORBIDDEN", { message: "Enrollment access denied." });
+        } else if (session) {
+          // The public TOTP route handles login challenges. An inactive invited
+          // staff member must verify a pending factor in the activation transaction.
+          const member = await prisma.adminUser.findUnique({
+            where: { userId: session.user.id },
+            select: { active: true, role: { select: { name: true } } },
+          });
+          if (member && !member.active && member.role.name !== "OWNER") {
+            throw new APIError("FORBIDDEN", { message: "Use staff onboarding to verify enrollment." });
+          }
+        }
+      }
       if (["/two-factor/enable", "/two-factor/get-totp-uri"].includes(ctx.path ?? "") && localScope && localDevelopment) {
         const url = new URL(process.env.DATABASE_URL ?? "");
         const session = await getSessionFromCtx(ctx, { disableCookieCache: true, disableRefresh: true });

@@ -16,16 +16,17 @@ const dotenv = require("dotenv");
 const root = resolve(import.meta.dirname, "..");
 process.chdir(root);
 const invitationMode = process.argv.includes("--invitations");
-const onboardingMode = process.argv.includes("--onboarding");
+const activationMode = process.argv.includes("--activation");
+const onboardingMode = process.argv.includes("--onboarding") || activationMode;
 if (invitationMode && onboardingMode) throw new Error("Select one verification mode");
 const id = randomUUID();
-const name = `${onboardingMode ? "aafiyat-onboarding-010e2b1" : invitationMode ? "aafiyat-invitations-010e2a" : "aafiyat-governance-010e1"}-${id}`;
+const name = `${activationMode ? "aafiyat-activation-010e2b2" : onboardingMode ? "aafiyat-onboarding-010e2b1" : invitationMode ? "aafiyat-invitations-010e2a" : "aafiyat-governance-010e1"}-${id}`;
 const database = `receive_verify_${id.replaceAll("-", "")}`;
 const work = join(tmpdir(), name);
 mkdirSync(work);
 const correctionMode = true;
 const reportPath = correctionMode ? join(work, onboardingMode ? "onboarding-results.json" : invitationMode ? "invitation-results.json" : "media-results.json") : join(root, "docs", "task-009d-2c-2v-results.json");
-const report = { task: onboardingMode ? "010-E2B1" : invitationMode ? "010-E2A" : "010-E1", runId: id, startedAt: new Date().toISOString(), containerName: name, database, status: "RUNNING" };
+const report = { task: activationMode ? "010-E2B2" : onboardingMode ? "010-E2B1" : invitationMode ? "010-E2A" : "010-E1", runId: id, startedAt: new Date().toISOString(), containerName: name, database, status: "RUNNING" };
 if (existsSync(reportPath)) {
   const previous = JSON.parse(readFileSync(reportPath, "utf8"));
   report.previousAttempts = [...(previous.previousAttempts ?? []), {
@@ -134,7 +135,7 @@ try {
   report.isolatedIdentityBeforeMigrations = identity;
   console.log(`PASS: verified empty PostgreSQL 18.6 database ${database} on localhost:${port}, tmpfs only`);
   const migrations = readdirSync("prisma/migrations", { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort();
-  assert.equal(migrations.length, 12);
+  assert.equal(migrations.length, 13);
   // Prisma deploy reads exactly the reviewed files; DATABASE_URL overrides dotenv.
   const cli = require.resolve("prisma/build/index.js");
   command(process.execPath, [cli, "migrate", "deploy"], { env: { ...process.env, DATABASE_URL: adminUrl } });
@@ -153,9 +154,9 @@ try {
       await admin.query("INSERT INTO categories(name,slug,sort_order) VALUES($1,$2,$3)",[`TEST ${slug}`,slug,sort]);
   }
   await admin.end(); admin = null;
-  console.log("PASS: twelve migrations applied only to verified disposable database; restricted test runtime grants configured");
+  console.log("PASS: thirteen migrations applied only to verified disposable database; restricted test runtime grants configured");
   const runtimeUrl = `postgresql://receiving_runtime:${runtimePassword}@127.0.0.1:${port}/${database}?application_name=009d2c2v_service`;
-  const childEnv = { ...process.env, DATABASE_URL: runtimeUrl, INVENTORY_TEST_ADMIN_URL: adminUrl,
+  const childEnv = { ...process.env, STAFF_ACTIVATION_VERIFY: activationMode ? "1" : "0", DATABASE_URL: runtimeUrl, INVENTORY_TEST_ADMIN_URL: adminUrl,
     INVENTORY_TEST_DATABASE: database, INVENTORY_TEST_CONTAINER: name, INVENTORY_TEST_RUN: id, INVENTORY_TEST_RESULTS: join(work, "results.json"),
     BETTER_AUTH_URL: "http://127.0.0.1:3000", BETTER_AUTH_SECRET: randomBytes(32).toString("hex"), NODE_ENV: "test" };
   childEnv.DATABASE_URL=adminUrl;
