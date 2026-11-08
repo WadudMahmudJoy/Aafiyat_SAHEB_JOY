@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { InventoryOverview, InventoryDetail, InventoryRow } from "@/lib/admin-inventory-read";
 import StockForm from "./stock-form";
 import styles from "./inventory.module.css";
+import workflow from "../products/workflow.module.css";
 export function StockStatus({ row }: { row: InventoryRow }) {
   const missing = row.onHand === null;
   const empty = !missing && row.available === 0;
@@ -21,7 +22,7 @@ export function InventoryOverviewView({ data }: { data: InventoryOverview }) {
 }
 export function InventoryDetailView({ data }: { data: InventoryDetail }) {
   const v = data.variant;
-  return <section><header className={styles.heading}><div><p className={styles.eyebrow}>VARIANT INVENTORY</p><h1>{v.productName}</h1><p className={styles.intro}>{v.sku} · {v.sizeLabel} / {v.colorLabel}</p></div><Link className={styles.link} href={`/admin/products/${v.productId}`}>View product →</Link></header>
+  return <section><header className={`${styles.heading} ${workflow.headingRow}`}><div><p className={styles.eyebrow}>VARIANT INVENTORY</p><h1>{v.productName}</h1><p className={styles.intro}>{v.sku} · {v.sizeLabel} / {v.colorLabel}</p></div><Link className={workflow.secondary} prefetch={false} href={`/admin/products/${v.productId}`}>Back to Product</Link></header>
     <div className={styles.metadata}><span>{v.category}</span><span>Product: {v.lifecycle}{v.productArchived ? " · archived" : ""}</span><span>Variant: {v.archived ? "archived" : v.active ? "active" : "inactive"}</span><StockStatus row={v} /></div>
     <div className={styles.stats}>{[["On hand", v.onHand], ["Reserved", v.reserved], ["Available", v.available]].map(([label, value]) => <div className={styles.stat} key={label}><span>{label}</span><strong>{value ?? "—"}</strong></div>)}</div>
     <p className={styles.note}>{v.onHand === null ? "No balance has been initialized. Receiving or a positive physical correction can initialize it." : `Low-stock threshold: ${v.threshold ?? "not configured"}. Available = on hand − reserved.`}</p>

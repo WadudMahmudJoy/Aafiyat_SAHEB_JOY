@@ -11,12 +11,7 @@
 .field :is(input, select, textarea) { width: 100%; min-height: 46px; border: 1px solid #a4b3a5; border-radius: 4px; padding: 12px; color: #263b32; background: #fffefa; font: inherit; font-size: 16px; line-height: 1.5; }
 .field textarea { resize: vertical; }
 .editor :is(input,select,textarea,button,a):focus-visible { outline: 3px solid #967035; outline-offset: 4px; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 22px; }
-.primary, .secondary { min-height: 46px; padding: 12px 18px; border: 1px solid #153e33; border-radius: 4px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
-.primary { background: #153e33; color: #fffefa; }
-.secondary { background: transparent; color: #153e33; }
-.editor button:disabled { opacity: .65; cursor: default; }
-.actions a { min-height: 44px; display: inline-flex; align-items: center; color: #153e33; font-size: 14px; text-underline-offset: 4px; }
+.actions { margin-top: 22px; }
 .error, .errorBox { color: #81371f; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .errorBox, .success { padding: 16px; border: 1px solid #c59a85; border-radius: 4px; }
 .success { color: #153e33; border-color: #a4b3a5; font-size: 14px; }
