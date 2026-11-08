@@ -1,0 +1,37 @@
+/* Latin subsets from Fontsource 5.3.0. The OFL notices are in the fonts directory. */
+@font-face {
+  font-family: "Manrope";
+  src: url("./fonts/manrope-latin-wght-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("./fonts/cormorant-garamond-latin-600-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+.admin {
+  --admin-wordmark: "Cormorant Garamond", Georgia, serif;
+  font-family: "Manrope", system-ui, sans-serif;
+  line-height: 1.55;
+}
+
+.admin :where(button, input, select, textarea) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  font-family: inherit;
+}
+
+.admin :where(h2, h3, legend) {
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.admin :where(th, label) { font-weight: 700; }
+.admin :where(td, dd) { font-variant-numeric: tabular-nums; }
+.admin pre { white-space: pre-wrap; overflow-wrap: anywhere; }

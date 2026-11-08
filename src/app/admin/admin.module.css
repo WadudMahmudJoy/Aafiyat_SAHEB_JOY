@@ -1,22 +1,21 @@
-.shell { --forest: #153e33; --gold: #d8bf87; --ink: #263b32; min-height: 100svh; background: #f7f5ee; color: var(--ink); display: grid; grid-template-columns: minmax(360px, 46%) 1fr; padding: 20px; gap: 20px; }
+.shell { --forest: #153e33; --gold: #d8bf87; --ink: #263b32; min-height: 100svh; background: #f7f5ee; color: var(--ink); display: grid; grid-template-columns: minmax(360px, 46%) minmax(0, 1fr); padding: 20px; gap: 20px; overflow-wrap: anywhere; }
 .brand { background: var(--forest); color: var(--gold); border-radius: 4px; padding: 42px 44px; display: flex; flex-direction: column; justify-content: space-between; min-height: calc(100svh - 40px); }
 .brandTop { font-size: 11px; letter-spacing: .16em; display: flex; justify-content: space-between; gap: 20px; }
 .brandTop span { color: #d8e2db; font-size: 10px; }
 .wordmark { text-align: center; padding: 55px 0; }
-.aafiyat { font-family: Georgia, "Times New Roman", serif; font-size: clamp(70px, 7.5vw, 120px); font-weight: 400; line-height: 1.12; letter-spacing: -.045em; }
-.saheb { font-family: Georgia, "Times New Roman", serif; font-size: 20px; letter-spacing: .38em; padding-left: .38em; margin-top: 16px; }
+.aafiyat { font-family: var(--admin-wordmark); font-size: clamp(70px, 7.5vw, 120px); font-weight: 600; line-height: .95; letter-spacing: -.035em; }
+.saheb { font-family: var(--admin-wordmark); font-size: 20px; font-weight: 600; letter-spacing: .38em; padding-left: .38em; margin-top: 16px; }
 .goldLine { width: 48px; height: 1px; background: var(--gold); margin: 36px auto 22px; }
-.tagline { color: #e8dcc2; font-family: Georgia, "Times New Roman", serif; font-size: 16px; font-style: italic; }
-.brandFoot { color: #d8e2db; font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.7; margin: 0; }
+.tagline { color: #e8dcc2; font-size: 14px; }
+.brandFoot { color: #d8e2db; font-size: 14px; line-height: 1.7; margin: 0; }
 .main { display: flex; align-items: center; justify-content: center; padding: 54px 32px; }
 .card { width: 100%; max-width: 420px; padding: 35px 0; }
 .eyebrow { font-size: 11px; letter-spacing: .19em; font-weight: 600; margin: 0 0 23px; color: #59654f; }
-.card h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(36px, 3.5vw, 48px); letter-spacing: -.035em; font-weight: 400; line-height: 1.12; margin: 0 0 18px; }
+.card h1 { font-size: clamp(32px, 3.5vw, 44px); letter-spacing: -.035em; font-weight: 750; line-height: 1.15; margin: 0 0 18px; }
 .intro { color: #58645c; font-size: 15px; line-height: 1.7; margin: 0 0 35px; }
 .form { display: flex; flex-direction: column; }
-.form label { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+.form label { font-size: 13px; font-weight: 700; margin: 0 0 10px; }
 .form input { width: 100%; background: #fffefa; border: 1px solid #b7c0b4; border-radius: 4px; padding: 14px 15px; color: #24352c; font-size: 16px; min-height: 50px; margin-bottom: 24px; }
-.shell input, .shell button { font-family: Arial, Helvetica, sans-serif; }
 .shell :is(input, button):focus-visible { outline: 3px solid #806127; outline-offset: 3px; }
 .passwordRow { position: relative; }
 .passwordRow input { padding-right: 75px; }
@@ -28,7 +27,7 @@
 .feedback p { margin: 0; }
 .feedback span { color: #526153; }
 .footnote { border-top: 1px solid #d8dccf; color: #617061; font-size: 12px; line-height: 1.8; margin-top: 30px; padding-top: 22px; }
-.stepHeading { font-family: Georgia, "Times New Roman", serif; font-size: 24px; margin-bottom: 10px; }
+.stepHeading { font-size: 20px; font-weight: 750; margin-bottom: 10px; }
 .help, .notice { font-size: 14px; line-height: 1.7; color: #58645c; margin: 0 0 22px; }
 .notice { background: #e9eee5; padding: 14px; border-radius: 4px; }
 .code { letter-spacing: .32em; }

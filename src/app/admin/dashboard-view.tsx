@@ -1,22 +1,73 @@
 import type { AdminDashboardData } from "@/lib/admin-dashboard";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import styles from "./dashboard.module.css";
 
 type Props = { dashboard: AdminDashboardData; state: "ready" | "checking" | "unavailable"; busy: boolean;
   onSignOut: () => void; onRetry: () => void; preview?: boolean; children?: ReactNode; currentPage?: "overview" | "products" | "inventory" | "orders" | "customers" | "categories" | "settings" | "marketing" | "content" | "staff" | "audit" };
 
+const descriptions: Record<string, string> = {
+  inventory: "Stock and movement ledger",
+  categories: "Category metadata and visibility",
+  orders: "Orders and acknowledgements",
+  customers: "Restricted customer support",
+  marketing: "Offer configuration",
+  content: "Homepage, pages and size guides",
+  settings: "Business policy configuration",
+  staff: "Membership governance",
+  audit: "Recorded administrative changes",
+};
+
 export default function DashboardView({ dashboard, state, busy, onSignOut, onRetry, preview = false, children, currentPage = "overview" }: Props) {
   const ready = state === "ready";
+  const desktopNav = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const nav = desktopNav.current;
+    const active = nav?.querySelector('[aria-current="page"]');
+    if (!ready || !nav || !active) return;
+
+    const revealActive = () => {
+      if (nav.clientHeight === 0) return;
+      const viewport = nav.getBoundingClientRect();
+      const item = active.getBoundingClientRect();
+      const inset = 5;
+      if (item.top < viewport.top + inset) {
+        nav.scrollTop += item.top - viewport.top - inset;
+      } else if (item.bottom > viewport.bottom - inset) {
+        nav.scrollTop += item.bottom - viewport.bottom + inset;
+      }
+    };
+
+    // Adjust only this scrollport. scrollIntoView can also move the page.
+    revealActive();
+    const observer = new ResizeObserver(revealActive);
+    observer.observe(nav);
+    if (nav.firstElementChild) observer.observe(nav.firstElementChild);
+    return () => observer.disconnect();
+  }, [currentPage, dashboard.areas, ready]);
+
   const navigation = <ul className={styles.navList}>
-    <li><a href={preview ? "#dashboard-main" : "/admin"} aria-current={currentPage === "overview" ? "page" : undefined} className={currentPage === "overview" ? styles.current : styles.navLink}><span aria-hidden="true">◈</span> Overview</a></li>
-    {dashboard.areas.map(area => <li key={area.id}>{area.href ? <a className={currentPage === area.id ? styles.current : styles.navLink} href={preview ? "#dashboard-main" : area.href} aria-current={currentPage === area.id ? "page" : undefined}>{area.label}{area.id === "orders" && dashboard.newOrders !== undefined && <span className={styles.orderBadge} aria-label={dashboard.newOrders === null ? "New order count unavailable" : `${dashboard.newOrders} new unacknowledged orders`}>{dashboard.newOrders === null ? "—" : BigInt(dashboard.newOrders) > BigInt("9999") ? "9999+" : dashboard.newOrders}</span>}<small>{["inventory", "orders", "customers", "categories"].includes(area.id) ? area.id === "orders" ? "Orders and acknowledgements" : area.id === "categories" ? "Category metadata and visibility" : area.id === "customers" ? "Restricted customer support" : "Stock and movement ledger" : area.id === "staff" ? "Membership governance" : area.id === "audit" ? "Recorded administrative changes" : area.id === "marketing" ? "Offer configuration" : area.id === "settings" ? "Business policy configuration" : area.features.includes("Product management") ? "Draft management" : "Read-only catalogue"}</small></a> : <span className={styles.upcomingNav}>{area.label}<small>Upcoming</small></span>}</li>)}
+    <li><a href={preview ? "#dashboard-main" : "/admin"} aria-current={currentPage === "overview" ? "page" : undefined} className={styles.navLink}>Overview</a></li>
+    {dashboard.areas.map(area => <li key={area.id}>{area.href ? (
+      <a className={styles.navLink} href={preview ? "#dashboard-main" : area.href} aria-current={currentPage === area.id ? "page" : undefined}>
+        <span className={styles.navTitle}>
+          <span>{area.label}</span>
+          {area.id === "orders" && dashboard.newOrders !== undefined && <span className={styles.orderBadge} aria-label={dashboard.newOrders === null ? "New order count unavailable" : `${dashboard.newOrders} new unacknowledged orders`}>{dashboard.newOrders === null ? "—" : BigInt(dashboard.newOrders) > BigInt("9999") ? "9999+" : dashboard.newOrders}</span>}
+        </span>
+        <small>{descriptions[area.id] ?? (area.features.includes("Product management") ? "Catalogue and variants" : "Read-only catalogue")}</small>
+      </a>
+    ) : <span className={styles.upcomingNav}>{area.label}<small>Upcoming</small></span>}</li>)}
   </ul>;
   return <div className={styles.shell}>
     <a className={styles.skip} href="#dashboard-main">Skip to main content</a>
     <aside className={styles.sidebar}>
-      <div className={styles.brand}><span>Aafiyat</span><strong>SAHEB</strong><p>Where Tradition Meets Royalty</p></div>
-      <p className={styles.navCaption}>MANAGEMENT WORKSPACE</p>
-      {ready && <nav className={styles.desktopNav} aria-label="Administration">{navigation}</nav>}
+      <div className={styles.sidebarTop}>
+        <div className={styles.brand}><span>Aafiyat</span><strong>SAHEB</strong><p>Where Tradition Meets Royalty</p></div>
+        <p className={styles.navCaption}>MANAGEMENT WORKSPACE</p>
+      </div>
+      <div className={styles.sidebarMenu}>
+        {ready && <nav ref={desktopNav} className={styles.desktopNav} aria-label="Administration" tabIndex={0}>{navigation}</nav>}
+      </div>
       <div className={styles.sidebarFoot}>Tradition, thoughtfully managed.</div>
     </aside>
     <div className={styles.workspace}>

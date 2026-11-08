@@ -4,15 +4,15 @@
 .note { font-size: 12px; margin: 0 0 22px; }
 .editor form { background: #fffefa; border: 1px solid #dce1d5; border-radius: 6px; padding: 28px; margin-top: 28px; }
 .editor fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-.legend { font: 23px Georgia, serif; padding: 0; margin-bottom: 24px; }
+.legend { font-size: 1.25rem; font-weight: 750; padding: 0; margin-bottom: 24px; }
 .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
 .field { min-width: 0; margin-bottom: 22px; }
 .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
-.field :is(input, select, textarea) { width: 100%; min-height: 46px; border: 1px solid #a4b3a5; border-radius: 4px; padding: 12px; color: #263b32; background: #fffefa; font: 16px/1.5 Arial,sans-serif; }
+.field :is(input, select, textarea) { width: 100%; min-height: 46px; border: 1px solid #a4b3a5; border-radius: 4px; padding: 12px; color: #263b32; background: #fffefa; font: inherit; font-size: 16px; line-height: 1.5; }
 .field textarea { resize: vertical; }
 .editor :is(input,select,textarea,button,a):focus-visible { outline: 3px solid #967035; outline-offset: 4px; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 22px; }
-.primary, .secondary { min-height: 46px; padding: 12px 18px; border: 1px solid #153e33; border-radius: 4px; font: 14px Arial,sans-serif; cursor: pointer; }
+.primary, .secondary { min-height: 46px; padding: 12px 18px; border: 1px solid #153e33; border-radius: 4px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .primary { background: #153e33; color: #fffefa; }
 .secondary { background: transparent; color: #153e33; }
 .editor button:disabled { opacity: .65; cursor: default; }

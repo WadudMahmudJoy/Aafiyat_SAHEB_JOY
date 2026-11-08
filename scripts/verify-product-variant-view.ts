@@ -26,7 +26,7 @@ function compile(file: string, modules: Record<string, unknown> = {}) {
 }
 const form = compile('src/app/admin/products/variant-form.tsx', { react: { ...React, useActionState: () => [state, '#draft-preview', pending] }, 'next/link': { __esModule: true, default: MockLink }, './variant-actions': { saveVariantAction() {} }, '@/lib/variant-validation': validation }).default;
 const shell = compile('src/app/admin/dashboard-view.tsx').default;
-const catalogue = compile('src/app/admin/products/catalogue-view.tsx', { 'next/link': { __esModule: true, default: MockLink }, '@/lib/admin-catalog-format': { catalogueHref, formatCataloguePrice } });
+const catalogue = compile('src/app/admin/products/catalogue-view.tsx', { './product-cover': compile('src/app/admin/products/product-cover.tsx'), 'next/link': { __esModule: true, default: MockLink }, '@/lib/admin-catalog-format': { catalogueHref, formatCataloguePrice } });
 const render = (component: React.ComponentType<Record<string,unknown>>, props: Record<string,unknown>) => renderToStaticMarkup(React.createElement(component, props));
 const props = { productId: id, productName: 'TEST product draft' }; const edit = { ...props, variantId: id, version, values };
 
